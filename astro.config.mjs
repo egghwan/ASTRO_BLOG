@@ -36,6 +36,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: '내 기술 블로그',
+      customCss: ['./src/styles/custom.css'],   // ← 이 줄 추가
       description: '반도체 설계 · RTL 검증 · AI 학습 기록',
 
       // 다국어가 필요 없으면 기본 한국어로 지정
@@ -55,8 +56,9 @@ export default defineConfig({
       sidebar: [
         { label: 'AI',                     items: [{ autogenerate: { directory: 'ai' } }] },
         { label: 'Wireless Communication', items: [{ autogenerate: { directory: 'wireless' } }] },
-        { label: 'FPGA',                   items: [{ autogenerate: { directory: 'fpga' } }] },
-        { label: 'RTL',                    items: [{ autogenerate: { directory: 'rtl' } }] },
+        { label: 'RTL Library',                     items: [{ autogenerate: { directory: 'RTL-library' } }] },
+        { label: 'FPGA Demo',                   items: [{ autogenerate: { directory: 'fpga' } }] },
+        { label: 'UVM',                    items: [{ autogenerate: { directory: 'rtl' } }] },
         { label: '기타',                   items: [{ autogenerate: { directory: 'misc' } }] },
       ],
 

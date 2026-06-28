@@ -1,27 +1,139 @@
 ---
-import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
-import { Card, CardGrid } from '@astrojs/starlight/components';
-
-// base 를 자동으로 읽어 링크 앞에 붙임 (로컬: '/', 배포: '/ASTRO_BLOG/')
+// ============================================================
+//  Astrofy 스타일 포트폴리오 홈 — 아래 데이터만 수정하면 됩니다
+// ============================================================
 const base = import.meta.env.BASE_URL;
 const link = (p) => `${base.replace(/\/$/, '')}/${p.replace(/^\//, '')}`;
+
+const profile = {
+  initial: 'K',
+  name: '김OO',
+  role: 'Semiconductor Engineer',
+  greeting: 'Hey there 👋',
+  tagline: 'RTL 검증 · FPGA · AI 가속기',
+  bio: '반도체 설계와 검증, AI 가속기를 공부하고 기록하는 공간입니다. 이론을 직접 코드로 옮기고, 그 과정을 문서로 남깁니다.',
+  github: 'https://github.com/USERNAME',
+  docLink: link('/rtl/uvm-verification/'),
+  demoLink: link('/demo/'),
+};
+
+const projects = [
+  { icon: '⚙️', tint: '#eef4ff', title: 'AXI4-Lite UVM 검증', badge: 'NEW', desc: 'SystemVerilog UVM으로 레지스터맵 DUT를 검증한 환경. 스코어보드·커버리지 포함.', href: link('/rtl/uvm-verification/') },
+  { icon: '🧠', tint: '#f3eeff', title: 'CNN 추론 가속기', badge: '', desc: 'FPGA 기반 합성곱 가속기 설계. 양자화와 파이프라이닝 적용.', href: link('/ai/cnn-basics/') },
+];
+
+const posts = [
+  { title: 'UVM 검증 환경 정리', cat: 'RTL', desc: 'AXI4-Lite 레지스터맵 UVM 테스트벤치 해설.', href: link('/rtl/uvm-verification/') },
+  { title: 'CNN 기초', cat: 'AI', desc: '합성곱 신경망이 이미지를 처리하는 방식.', href: link('/ai/cnn-basics/') },
+];
+
+const socials = [
+  { label: 'GitHub', icon: '🐙', href: 'https://github.com/USERNAME' },
+];
 ---
-<StarlightPage frontmatter={{
-  title: '안녕하세요 👋',
-  template: 'splash',
-  hero: {
-    tagline: 'RTL 검증 · FPGA · 무선통신 · AI 를 공부하고 정리합니다.',
-    actions: [
-      { text: '기술 문서 보기', link: link('/rtl/uvm-verification/'), icon: 'right-arrow', variant: 'primary' },
-      { text: 'GitHub', link: 'https://github.com/egghwan', icon: 'external', variant: 'minimal' },
-    ],
-  },
-}}>
-  <h2>무엇을 다루나요</h2>
-  <CardGrid>
-    <Card title="AI" icon="seti:python">CNN, 딥러닝 기초와 가속기 구현.</Card>
-    <Card title="Wireless" icon="seti:default">OFDM, MIMO 등 무선통신 이론.</Card>
-    <Card title="FPGA" icon="seti:config">합성 흐름과 보드 구현 노트.</Card>
-    <Card title="RTL" icon="seti:systemverilog">SystemVerilog, UVM 검증 환경.</Card>
-  </CardGrid>
-</StarlightPage>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{profile.name} · 포트폴리오</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Pretendard',-apple-system,sans-serif; background:#eef1f6; color:#1a1a1a; -webkit-font-smoothing:antialiased; }
+    a { text-decoration:none; color:inherit; }
+    .page { width:100%; max-width:1140px; margin:0 auto; padding:20px 20px 28px; display:flex; gap:20px; align-items:flex-start; }
+    @media (max-width:760px){ .page{ flex-direction:column; } }
+
+    .side { width:230px; flex-shrink:0; background:#fff; border-radius:18px; padding:24px 20px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,0.06); position:sticky; top:24px; }
+    @media (max-width:760px){ .side{ width:100%; position:static; } }
+    .avatar { width:96px; height:96px; border-radius:50%; background:linear-gradient(135deg,#3b82f6,#6366f1); margin:0 auto 14px; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:700; color:#fff; }
+    .side .nm { font-size:17px; font-weight:700; }
+    .side .rl { font-size:12.5px; color:#6b7280; margin-bottom:18px; }
+    .side .links { border-top:1px solid #eef0f3; padding-top:16px; display:flex; justify-content:center; gap:14px; font-size:14px; }
+    .side .links a { color:#4b5563; padding:6px 10px; border-radius:8px; transition:background .15s; }
+    .side .links a:hover { background:#f1f5f9; }
+
+    .main { flex:1; min-width:0; }
+    .intro { background:#fff; border-radius:18px; padding:40px 34px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+    .intro .g { font-size:31px; font-weight:700; line-height:1.25; }
+    .intro .g .accent { color:#2563eb; }
+    .intro .tag { font-size:15px; font-weight:600; color:#6b7280; margin:8px 0 14px; }
+    .intro .bio { font-size:14.5px; color:#4b5563; line-height:1.7; margin-bottom:22px; }
+    .btns { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn { font-size:13.5px; font-weight:600; padding:11px 22px; border-radius:10px; transition:transform .15s, background .15s; }
+    .btn:hover { transform:translateY(-2px); }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-primary:hover { background:#1d4ed8; }
+    .btn-outline { background:#fff; color:#2563eb; border:1.5px solid #2563eb; }
+    .btn-outline:hover { background:#eff5ff; }
+
+    .sec-title { font-size:18px; font-weight:700; margin:20px 6px 12px; }
+    .stack { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
+    .pcard { background:#fff; border-radius:15px; padding:18px; box-shadow:0 1px 4px rgba(0,0,0,0.06); display:flex; gap:15px; align-items:center; transition:transform .16s, box-shadow .16s; }
+    .pcard:hover { transform:translateY(-3px); box-shadow:0 6px 18px rgba(37,99,235,0.12); }
+    .pic { width:50px; height:50px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:23px; flex-shrink:0; }
+    .pcard .pt { font-size:14.5px; font-weight:700; }
+    .pcard .pd { font-size:12.5px; color:#6b7280; margin-top:4px; line-height:1.55; }
+    .badge { font-size:10px; padding:2px 8px; border-radius:6px; font-weight:600; margin-left:6px; vertical-align:middle; }
+    .badge-new { background:#dcfce7; color:#16a34a; }
+    .badge-cat { background:#eef4ff; color:#2563eb; }
+
+    footer { text-align:center; padding:24px 20px 12px; font-size:12.5px; color:#94a3b8; }
+    footer a { color:#2563eb; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside class="side">
+      <div class="avatar">{profile.initial}</div>
+      <div class="nm">{profile.name}</div>
+      <div class="rl">{profile.role}</div>
+      <div class="links">
+        {socials.map((s) => (<a href={s.href} target="_blank" rel="noopener" title={s.label}>{s.icon}</a>))}
+        <a href={profile.docLink} title="문서">📄</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="intro">
+        <div class="g">{profile.greeting}<br />저는 <span class="accent">{profile.name}</span> 입니다</div>
+        <div class="tag">{profile.tagline}</div>
+        <div class="bio">{profile.bio}</div>
+        <div class="btns">
+          <a class="btn btn-primary" href={profile.docLink}>📄 기술 문서 보기</a>
+          <a class="btn btn-outline" href={profile.demoLink}>▶ Demo 보기</a>
+        </div>
+      </section>
+
+      <div class="sec-title">주요 프로젝트 &lt;/&gt;</div>
+      <div class="stack">
+        {projects.map((p) => (
+          <a class="pcard" href={p.href}>
+            <div class="pic" style={`background:${p.tint}`}>{p.icon}</div>
+            <div>
+              <div class="pt">{p.title}{p.badge && <span class="badge badge-new">{p.badge}</span>}</div>
+              <div class="pd">{p.desc}</div>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      <div class="sec-title">최신 글</div>
+      <div class="stack">
+        {posts.map((p) => (
+          <a class="pcard" href={p.href}>
+            <div class="pic" style="background:#eef4ff">📝</div>
+            <div>
+              <div class="pt">{p.title}<span class="badge badge-cat">{p.cat}</span></div>
+              <div class="pd">{p.desc}</div>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      <footer>© 2025 {profile.name} · Built with Astro &amp; Starlight · <a href={profile.github}>GitHub</a></footer>
+    </main>
+  </div>
+</body>
+</html>

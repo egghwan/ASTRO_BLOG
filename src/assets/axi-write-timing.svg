@@ -1,0 +1,37 @@
+<svg width="700" height="410" viewBox="0 0 680 410" xmlns="http://www.w3.org/2000/svg" font-family="'Pretendard',-apple-system,sans-serif">
+<rect width="680" height="410" fill="#ffffff"/>
+<text x="40" y="22" font-size="14" font-weight="600" fill="#1a1a1a">AXI4-Lite 쓰기 — 마스터(CPU) ↔ 슬레이브(regmap)</text>
+<rect x="40" y="34" width="158" height="20" rx="4" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"/>
+<text x="50" y="48" font-size="11" fill="#0F6E56">■ 마스터(CPU)가 구동</text>
+<rect x="206" y="34" width="172" height="20" rx="4" fill="#FBE9E1" stroke="#D85A30" stroke-width="0.5"/>
+<text x="216" y="48" font-size="11" fill="#A8451E">■ 슬레이브(regmap)가 구동</text>
+<line x1="170" y1="64" x2="170" y2="384" stroke="#cbd5e1" stroke-width="0.5" stroke-dasharray="3 3"/>
+<line x1="290" y1="64" x2="290" y2="384" stroke="#cbd5e1" stroke-width="0.5" stroke-dasharray="3 3"/>
+<line x1="410" y1="64" x2="410" y2="384" stroke="#cbd5e1" stroke-width="0.5" stroke-dasharray="3 3"/>
+<text x="230" y="76" font-size="12" fill="#6b7280" text-anchor="middle">T1</text>
+<text x="350" y="76" font-size="12" fill="#6b7280" text-anchor="middle">T2</text>
+<text x="130" y="100" font-size="12" fill="#6b7280" text-anchor="end">clk</text>
+<polyline fill="none" stroke="#378ADD" stroke-width="1.5" points="170,106 170,86 230,86 230,106 290,106 290,86 350,86 350,106 410,106 410,86 470,86 470,106 590,106 590,86 590,106"/>
+<text x="130" y="134" font-size="12" fill="#0F6E56" text-anchor="end">awvalid</text>
+<polyline fill="none" stroke="#1D9E75" stroke-width="1.5" points="170,140 170,120 290,120 290,140 590,140"/>
+<text x="130" y="160" font-size="12" fill="#A8451E" text-anchor="end">awready</text>
+<polyline fill="none" stroke="#D85A30" stroke-width="1.5" points="170,166 290,166 290,146 410,146 410,166 590,166"/>
+<text x="130" y="192" font-size="12" fill="#0F6E56" text-anchor="end">awaddr</text>
+<polygon fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5" points="170,198 178,178 282,178 290,198 282,218 178,218"/>
+<text x="230" y="202" font-size="12" fill="#0F6E56" text-anchor="middle">0x04</text>
+<text x="130" y="244" font-size="12" fill="#0F6E56" text-anchor="end">wvalid</text>
+<polyline fill="none" stroke="#1D9E75" stroke-width="1.5" points="170,250 170,230 290,230 290,250 590,250"/>
+<text x="130" y="270" font-size="12" fill="#A8451E" text-anchor="end">wready</text>
+<polyline fill="none" stroke="#D85A30" stroke-width="1.5" points="170,276 290,276 290,256 410,256 410,276 590,276"/>
+<text x="130" y="302" font-size="12" fill="#0F6E56" text-anchor="end">wdata</text>
+<polygon fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5" points="170,308 178,288 282,288 290,308 282,328 178,328"/>
+<text x="230" y="312" font-size="12" fill="#0F6E56" text-anchor="middle">0xABCD</text>
+<text x="130" y="354" font-size="12" fill="#A8451E" text-anchor="end">bvalid</text>
+<polyline fill="none" stroke="#D85A30" stroke-width="1.5" points="170,360 290,360 290,340 410,340 410,360 590,360"/>
+<text x="130" y="380" font-size="12" fill="#A8451E" text-anchor="end">bresp</text>
+<polygon fill="#FBE9E1" stroke="#D85A30" stroke-width="0.5" points="290,384 298,366 392,366 400,384 392,402 298,402"/>
+<text x="345" y="388" font-size="12" fill="#A8451E" text-anchor="middle">OKAY</text>
+<circle cx="290" cy="130" r="4" fill="none" stroke="#A32D2D" stroke-width="1.5"/>
+<circle cx="290" cy="240" r="4" fill="none" stroke="#A32D2D" stroke-width="1.5"/>
+<text x="228" y="348" font-size="11" fill="#A32D2D" text-anchor="middle">T1: AW·W 동시 수신</text>
+</svg>

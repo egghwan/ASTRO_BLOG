@@ -1,0 +1,86 @@
+<svg width="700" height="320" viewBox="0 0 680 320" xmlns="http://www.w3.org/2000/svg" font-family="'Pretendard',-apple-system,sans-serif">
+<rect width="680" height="320" fill="#ffffff"/>
+<text x="40" y="26" font-size="14" font-weight="600" fill="#1a1a1a">AXI4-Lite 슬레이브 레지스터맵의 역할</text>
+
+<!-- PS box -->
+<rect x="20" y="100" width="120" height="130" rx="10" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="80" y="128" font-size="13" font-weight="500" fill="#0C447C" text-anchor="middle">PS (CPU)</text>
+<text x="80" y="147" font-size="11" fill="#185FA5" text-anchor="middle">소프트웨어</text>
+<text x="80" y="178" font-size="11" fill="#185FA5" text-anchor="middle">마스터</text>
+<text x="80" y="194" font-size="11" fill="#185FA5" text-anchor="middle">명령을 보냄</text>
+
+<!-- Slave regmap -->
+<rect x="265" y="80" width="170" height="170" rx="10" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="350" y="104" font-size="12" font-weight="500" fill="#085041" text-anchor="middle">AXI4-Lite 슬레이브</text>
+<text x="350" y="120" font-size="12" font-weight="500" fill="#085041" text-anchor="middle">레지스터맵 (받는 쪽)</text>
+<rect x="284" y="135" width="132" height="24" rx="4" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<rect x="284" y="163" width="132" height="24" rx="4" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<rect x="284" y="191" width="132" height="24" rx="4" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="292" y="151" font-size="10.5" fill="#444441" text-anchor="start">0x00 START</text>
+<text x="292" y="179" font-size="10.5" fill="#444441" text-anchor="start">0x04 CLEAR</text>
+<text x="292" y="207" font-size="10.5" fill="#444441" text-anchor="start">0x08 VALUE</text>
+<!-- reg0 value (appears on write) -->
+<text x="408" y="151" font-size="10.5" font-weight="600" fill="#0F6E56" text-anchor="end">
+  <tspan opacity="0">1<animate attributeName="opacity" values="0;0;1;1;1;1;1;0;0" keyTimes="0;0.18;0.22;0.5;0.7;0.8;0.92;0.96;1" dur="9s" repeatCount="indefinite"/></tspan>
+</text>
+<!-- reg8 value -->
+<text x="408" y="207" font-size="10.5" font-weight="600" fill="#0F6E56" text-anchor="end">
+  <tspan opacity="0">7<animate attributeName="opacity" values="0;0;0;0;1;1;1;0;0" keyTimes="0;0.5;0.6;0.66;0.7;0.85;0.92;0.96;1" dur="9s" repeatCount="indefinite"/></tspan>
+</text>
+
+<!-- PL counter -->
+<rect x="540" y="100" width="120" height="130" rx="10" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="600" y="126" font-size="13" font-weight="500" fill="#633806" text-anchor="middle">PL 카운터</text>
+<text x="600" y="144" font-size="11" fill="#854F0B" text-anchor="middle">하드웨어</text>
+<text x="600" y="180" font-size="18" font-weight="700" fill="#633806" text-anchor="middle"><tspan opacity="1">0<animate attributeName="opacity" values="1;1;0;0;0;0" keyTimes="0;0.30;0.301;0.92;0.999;1" dur="9s" repeatCount="indefinite"/></tspan></text>
+<text x="600" y="180" font-size="18" font-weight="700" fill="#633806" text-anchor="middle"><tspan opacity="0">3<animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.301;0.34;0.38;1" dur="9s" repeatCount="indefinite"/></tspan></text>
+<text x="600" y="180" font-size="18" font-weight="700" fill="#633806" text-anchor="middle"><tspan opacity="0">7<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.38;0.40;0.92;0.921;1" dur="9s" repeatCount="indefinite"/></tspan></text>
+<text x="600" y="200" font-size="11" fill="#854F0B" text-anchor="middle"><tspan opacity="1">정지<animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.28;0.30;0.92;0.93" dur="9s" repeatCount="indefinite"/></tspan></text>
+<text x="600" y="200" font-size="11" fill="#854F0B" text-anchor="middle"><tspan opacity="0">동작 중<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.30;0.31;0.91;0.92;1" dur="9s" repeatCount="indefinite"/></tspan></text>
+
+<!-- bus lines -->
+<line x1="140" y1="165" x2="265" y2="165" stroke="#94928a" stroke-width="1"/>
+<line x1="435" y1="165" x2="540" y2="165" stroke="#94928a" stroke-width="1"/>
+<text x="202" y="157" font-size="10.5" fill="#6b7280" text-anchor="middle">AXI4-Lite 버스</text>
+<text x="487" y="157" font-size="10.5" fill="#6b7280" text-anchor="middle">제어/상태</text>
+
+<!-- caption that changes -->
+<text x="350" y="285" font-size="12" fill="#1a1a1a" text-anchor="middle" font-weight="500">
+  <tspan>① CPU가 0x00에 "1" 쓰기 (켜기 명령)<animate attributeName="opacity" values="1;1;0;0" keyTimes="0;0.2;0.24;1" dur="9s" repeatCount="indefinite"/></tspan>
+</text>
+<text x="350" y="285" font-size="12" fill="#1a1a1a" text-anchor="middle" font-weight="500">
+  <tspan opacity="0">② 슬레이브가 받아 저장 → 카운터 enable<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.24;0.28;0.46;0.5;1" dur="9s" repeatCount="indefinite"/></tspan>
+</text>
+<text x="350" y="285" font-size="12" fill="#1a1a1a" text-anchor="middle" font-weight="500">
+  <tspan opacity="0">③ CPU가 0x08 읽기 → 슬레이브가 실제값 회신<animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.5;0.54;0.92;1" dur="9s" repeatCount="indefinite"/></tspan>
+</text>
+
+<!-- WRITE packet: PS -> slave -> counter (first half) -->
+<g>
+  <rect x="-24" y="-13" width="48" height="26" rx="7" fill="#FAECE7" stroke="#D85A30" stroke-width="0.5"/>
+  <text x="0" y="4" font-size="10.5" font-weight="600" fill="#993C1D" text-anchor="middle">쓰기 1</text>
+  <animateTransform attributeName="transform" type="translate"
+    values="140,165; 140,165; 350,165; 350,165; 600,165; 600,165; 600,165"
+    keyTimes="0; 0.04; 0.20; 0.26; 0.40; 0.42; 1"
+    dur="9s" repeatCount="indefinite"/>
+  <animate attributeName="opacity"
+    values="0;1;1;1;1;0;0" keyTimes="0;0.04;0.20;0.26;0.40;0.42;1" dur="9s" repeatCount="indefinite"/>
+</g>
+
+<!-- READ request packet: PS -> slave -> counter -> back to PS (second half) -->
+<g>
+  <rect x="-24" y="-13" width="48" height="26" rx="7" fill="#FAECE7" stroke="#D85A30" stroke-width="0.5"/>
+  <text x="0" y="4" font-size="10.5" font-weight="600" fill="#993C1D" text-anchor="middle">
+    <tspan>읽기?<animate attributeName="opacity" values="1;1;0;0" keyTimes="0;0.66;0.68;1" dur="9s" repeatCount="indefinite"/></tspan>
+  </text>
+  <text x="0" y="4" font-size="10.5" font-weight="600" fill="#993C1D" text-anchor="middle">
+    <tspan opacity="0">값 7<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.68;0.7;1" dur="9s" repeatCount="indefinite"/></tspan>
+  </text>
+  <animateTransform attributeName="transform" type="translate"
+    values="140,165; 140,165; 350,165; 350,165; 600,165; 350,165; 140,165; 140,165"
+    keyTimes="0; 0.52; 0.62; 0.66; 0.72; 0.80; 0.90; 1"
+    dur="9s" repeatCount="indefinite"/>
+  <animate attributeName="opacity"
+    values="0;0;1;1;1;1;1;1;0" keyTimes="0;0.52;0.56;0.62;0.72;0.8;0.88;0.9;1" dur="9s" repeatCount="indefinite"/>
+</g>
+</svg>

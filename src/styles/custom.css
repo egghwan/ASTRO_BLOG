@@ -1,0 +1,129 @@
+/* =====================================================================
+   custom.css — 미니멀 화이트 테마 (신뢰감 블루 + 고가독성 폰트)
+   src/styles/custom.css 에 두고, astro.config.mjs 의
+   customCss: ['./src/styles/custom.css'] 로 연결합니다.
+   ===================================================================== */
+
+/* ── 폰트: Pretendard(본문, 한글 가독성 최상) + JetBrains Mono(코드) ── */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* 신뢰감의 표준, 블루 계열 강조색 */
+  --sl-color-accent-low: #d3e3f7;
+  --sl-color-accent: #1a73c7;
+  --sl-color-accent-high: #0c3f72;
+
+  /* 폰트 적용 */
+  --sl-font: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* 본문 가독성: 줄간격·글자크기 살짝 키움 */
+  --sl-line-height: 1.75;
+  --sl-text-base: 1rem;
+}
+
+/* 라이트 모드: 미니멀 화이트 (회색기 줄이고 깨끗한 흰색) */
+:root[data-theme='light'] {
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: #ffffff;
+  --sl-color-bg-sidebar: #fafbfc;
+  --sl-color-text: #1a1a1a;
+  --sl-color-text-accent: #1a73c7;
+  --sl-color-gray-1: #2b2b2b;
+  --sl-color-gray-2: #4b4b4b;
+  --sl-color-gray-3: #6b7280;
+  --sl-color-gray-6: #f3f5f7;
+  --sl-color-gray-7: #fafbfc;
+  --sl-color-hairline: #ececf0;
+}
+
+/* 본문 문단 폭을 살짝 좁혀 읽기 편하게 (너무 긴 줄 방지) */
+.sl-markdown-content {
+  font-feature-settings: 'tnum';
+}
+
+/* ── 코드 블록 합자(ligature) 끄기 ──
+   JetBrains Mono 등 코딩 폰트는 <= 를 ≤ 처럼 이어 그립니다.
+   SystemVerilog 의 논블로킹 할당(<=)이 부등호로 보이지 않게 합자를 비활성화. */
+code,
+pre,
+.expressive-code code,
+.expressive-code pre,
+.sl-markdown-content code {
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'calt' 0, 'clig' 0, 'dlig' 0;
+}
+
+/* 사이드바 항목 간격·폰트 정리 */
+.sidebar-content a {
+  font-weight: 450;
+  letter-spacing: -0.01em;
+}
+
+/* 카테고리 그룹 제목 강조 */
+.sidebar-content summary,
+.sidebar-content > ul > li > details > summary span,
+.sidebar-content > ul > li > span {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* 코드 블록 모서리 둥글게 + 톤 정리 */
+.expressive-code .frame {
+  border-radius: 10px;
+}
+
+/* 링크 hover 시 은은한 밑줄 애니메이션 */
+.sl-markdown-content a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+/* =====================================================================
+   히어로(홈) 영역 — 여백을 회로 패턴으로 채우기
+   Starlight 기본 .hero 영역에 자동 적용됩니다 (index.astro 수정 불필요).
+   ===================================================================== */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 3rem 1.5rem 3.5rem;   /* 위아래 여백을 패턴 영역으로 확보 */
+  border-radius: 16px;
+}
+
+/* 은은한 회로 기판 패턴 배경 (SVG data-uri, 연한 블루) */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%231a73c7' stroke-width='1' stroke-opacity='0.18'%3E%3Cpath d='M20 20h60v60M180 40h-50v40h50M40 180v-50h40M160 160h-40v-40'/%3E%3Ccircle cx='20' cy='20' r='3' fill='%231a73c7' fill-opacity='0.25' stroke='none'/%3E%3Ccircle cx='80' cy='80' r='3' fill='%231a73c7' fill-opacity='0.25' stroke='none'/%3E%3Ccircle cx='130' cy='80' r='3' fill='%231a73c7' fill-opacity='0.25' stroke='none'/%3E%3Ccircle cx='180' cy='40' r='3' fill='%231a73c7' fill-opacity='0.25' stroke='none'/%3E%3Ccircle cx='40' cy='130' r='3' fill='%231a73c7' fill-opacity='0.25' stroke='none'/%3E%3Ccircle cx='120' cy='160' r='3' fill='%231a73c7' fill-opacity='0.25' stroke='none'/%3E%3Crect x='90' y='95' width='30' height='20' rx='2' stroke-opacity='0.22'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  /* 가장자리로 갈수록 페이드아웃 (가운데 텍스트 가독성 보호) */
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, transparent 30%, black 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, transparent 30%, black 100%);
+}
+
+/* 다크 모드에서도 회로 패턴 보이게 (살짝 밝게) */
+:root[data-theme='dark'] .hero::before {
+  opacity: 0.35;
+}
+
+/* 히어로 내용은 패턴 위로 */
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 홈 카드 그리드 hover 시 살짝 떠오르는 효과 */
+.sl-markdown-content .card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.sl-markdown-content .card:hover {
+  transform: translateY(-3px);
+  border-color: var(--sl-color-accent);
+  box-shadow: 0 6px 20px rgba(26, 115, 199, 0.12);
+}
