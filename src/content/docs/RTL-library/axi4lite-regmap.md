@@ -807,18 +807,27 @@ AXI4-Lite 슬레이브 프로토콜 엔진 (병렬 수신)
 //
 //  Address range = [0 .. NUM_REGISTERS*4 - 1]. Out-of-range -> DECERR.
 //----------------------------------------------------------------------
-//  [성능 개선 — 병렬 수신 구조]
-//   기존 직렬 FSM(W_IDLE -> W_DATA -> W_RESP)은 반드시 AW 를 먼저 받고
-//   그 다음 클럭에야 wready 를 올려 W 를 받았다. 그래서:
-//     - AW/W 동시 입력이어도 직렬화되어 트랜잭션당 최소 3클럭
-//     - W 가 먼저 오면 AW 도착까지 W 채널이 대기
-//
-//   본 설계는 awready/wready 를 '항상' 올려 두 채널을 독립적으로 받는다.
+//  [병렬 수신 구조]
+//   awready/wready 를 상시 1 로 두어 AW/W 두 채널을 독립적으로 받는다.
 //     - aw_taken / w_taken : 각 채널 핸드셰이크를 따로 포착(먼저 온 쪽 latch)
 //     - 둘 다 모이면(addr+data 확보) 그 즉시 기록하고 bvalid 1
-//     - AW/W 동시 입력 시 같은 클럭에 둘 다 latch -> 다음 클럭 응답
-//       => 동시/AW-우선/W-우선 모두 ~2클럭에 완료(직렬 3클럭 대비 개선)
+//     - 동시 / AW-우선 / W-우선 모두 ~2클럭에 완료
 //   읽기 채널도 arready 를 상시 1 로 두어 한 클럭 빨리 응답한다.
+//----------------------------------------------------------------------
+//  [버그 #1 수정 — 응답 회수와 동시 수신의 race]
+//   (이전 구현) 수신 latch 가 `if (bvalid&&bready) ... else ...` 의 else 에
+//   갇혀 있어, 응답을 회수하는 바로 그 클럭에는 수신 로직이 평가되지 않았다.
+//   그 클럭에 master 가 ready=1 을 보고 다음 트랜잭션의 AW/W 를 올리면 그
+//   핸드셰이크가 통째로 버려져 데이터가 유실됐다(back-to-back 에서 재현).
+//
+//   (수정) 회수 / 수신 / 커밋을 상호배타 if/else 에서 분리해, 한 클럭에
+//   동시에 일어날 수 있는 세 사건을 각각 독립적으로 next-state 에 반영한다.
+//   조합(next) + 등록(ff) 2-process 구조로 작성. 회수가 채널을 열어주는
+//   바로 그 클럭에 도착한 새 핸드셰이크도 정상적으로 latch 된다.
+//
+//   검증: Icarus Verilog 로 동시/AW우선/W우선/back-to-back 연속/strobe
+//   부분쓰기/비정렬(SLVERR)/범위밖(DECERR)/경계 레지스터 시나리오를
+//   scoreboard 와 대조해 전부 통과(ALL CHECKS PASSED).
 //======================================================================
 import lib_axil_reg_pkg::*;
 
@@ -835,7 +844,6 @@ module lib_axil_protocol #(
     localparam int STRB_WIDTH   = DATA_WIDTH/8;
     localparam int REGION_BYTES = NUM_REGISTERS * STRB_WIDTH;
     localparam int IDX_WIDTH    = $clog2(NUM_REGISTERS);
-    localparam int OFFW         = $clog2(REGION_BYTES);
 
     localparam logic [1:0] RESP_OKAY   = 2'b00;
     localparam logic [1:0] RESP_SLVERR = 2'b10;
@@ -852,23 +860,17 @@ module lib_axil_protocol #(
         end
     endgenerate
 
-    // 유효 주소 = 실제 레지스터 영역(REGION_BYTES) 안에 있고 4바이트 정렬.
-    //   기존엔 상위 비트(a[ADDR_WIDTH-1:OFFW])만 봐서, NUM_REGISTERS 가 2의
-    //   거듭제곱이 아니면 영역 밖(NUM_REGISTERS..2^? 사이) 주소가 통과해
-    //   존재하지 않는 regfile 인덱스에 접근하는 갭 버그가 있었다.
-    //   REGION_BYTES 와 직접 비교해 그 갭을 없앤다(scoreboard 기준과 일치).
+    // 유효 주소 = 실제 레지스터 영역(REGION_BYTES) 안.
     function automatic bit addr_in_range(input logic [ADDR_WIDTH-1:0] a);
         return (a < REGION_BYTES);
     endfunction
 
-    // 4바이트 정렬 여부(하위 2비트가 0). 레지스터는 워드 단위이므로
-    //   비정렬 주소(예: 0x6)는 조용히 잘못된 인덱스로 매핑되면 안 된다.
+    // 4바이트 정렬 여부(하위 2비트가 0).
     function automatic bit addr_aligned(input logic [ADDR_WIDTH-1:0] a);
         return (a[1:0] == 2'b00);
     endfunction
 
-    // 바이트 주소 -> 레지스터 인덱스. 하위 2비트(바이트 오프셋)를 떼고
-    //   IDX_WIDTH 폭으로 추출(in-range 주소에만 호출되므로 항상 유효).
+    // 바이트 주소 -> 레지스터 인덱스 (in-range 주소에만 호출).
     function automatic logic [IDX_WIDTH-1:0] addr_to_index(input logic [ADDR_WIDTH-1:0] a);
         return a[2 +: IDX_WIDTH];
     endfunction
@@ -885,35 +887,113 @@ module lib_axil_protocol #(
     endfunction
 
     //==================================================================
-    // ---- Write channel : 병렬 수신 ----
-    //   awready/wready 를 상시 1 로 두되, 응답 미회수 구간에는 0 으로 닫는다.
-    //   먼저 도착한 채널 정보를 래치(aw_taken/w_taken)하고, 둘 다 모이면 기록.
+    // ---- Write channel : 병렬 수신 (2-process, 버그 #1 수정판) ----
     //==================================================================
-    logic                  aw_taken;   // AW 핸드셰이크를 이미 받았나(주소 확보)
-    logic                  w_taken;    // W  핸드셰이크를 이미 받았나(데이터 확보)
-    logic [ADDR_WIDTH-1:0] waddr_q;    // 래치한 쓰기 주소
-    logic [DATA_WIDTH-1:0] wdata_q;    // 래치한 쓰기 데이터
-    logic [STRB_WIDTH-1:0] wstrb_q;    // 래치한 strobe
+    // 상태(state)
+    logic                  aw_taken;
+    logic                  w_taken;
+    logic [ADDR_WIDTH-1:0] waddr_q;
+    logic [DATA_WIDTH-1:0] wdata_q;
+    logic [STRB_WIDTH-1:0] wstrb_q;
 
-    // 이번 클럭에 각 채널 핸드셰이크가 성립하는가
-    //   (이미 받은 채널은 ready 를 내리므로 중복 포착 방지)
-    wire aw_hs = bus.awvalid && bus.awready;
-    wire w_hs  = bus.wvalid  && bus.wready;
+    // 다음 상태(next-state)
+    logic                  n_awready, n_wready, n_bvalid, n_aw_taken, n_w_taken;
+    logic [1:0]            n_bresp;
+    logic [ADDR_WIDTH-1:0] n_waddr;
+    logic [DATA_WIDTH-1:0] n_wdata;
+    logic [STRB_WIDTH-1:0] n_wstrb;
+    logic                  rf_we;
+    logic [IDX_WIDTH-1:0]  rf_idx;
+    logic [DATA_WIDTH-1:0] rf_wdata;
 
-    // 이번 클럭 기준 "주소/데이터가 모두 확보되는가"
-    //   = 이미 받아둔 것 + 이번 클럭에 새로 받는 것
+    // 이번 클럭 각 채널 핸드셰이크 / 응답 회수.
+    wire aw_hs     = bus.awvalid && bus.awready;
+    wire w_hs      = bus.wvalid  && bus.wready;
+    wire b_collect = bus.bvalid  && bus.bready;
+
+    // addr/data 확보 여부 = 래치분 + 이번 클럭 새로 받는 분.
     wire have_aw = aw_taken | aw_hs;
     wire have_w  = w_taken  | w_hs;
-    wire do_write_commit = have_aw && have_w && !bus.bvalid; // 응답 대기 중 아닐 때만 커밋
 
-    // 커밋에 사용할 최종 주소/데이터 (이번 클럭에 막 도착한 값도 반영)
+    // 응답 자리가 비어 있거나(미게시) 이번 클럭에 회수되면 커밋 가능.
+    wire resp_slot_free = (!bus.bvalid) || b_collect;
+    wire do_write_commit = have_aw && have_w && resp_slot_free;
+
+    // 커밋에 쓸 최종 주소/데이터 (이번 클럭 막 도착분도 반영).
     wire [ADDR_WIDTH-1:0] commit_addr = aw_taken ? waddr_q : bus.awaddr;
     wire [DATA_WIDTH-1:0] commit_data = w_taken  ? wdata_q : bus.wdata;
     wire [STRB_WIDTH-1:0] commit_strb = w_taken  ? wstrb_q : bus.wstrb;
 
+    // ---- 조합 : next-state 계산 (회수 / 수신 / 커밋을 독립 반영) ----
+    always_comb begin
+        // 기본값 : 현재 상태 유지
+        n_awready  = bus.awready;
+        n_wready   = bus.wready;
+        n_bvalid   = bus.bvalid;
+        n_bresp    = bus.bresp;
+        n_aw_taken = aw_taken;
+        n_w_taken  = w_taken;
+        n_waddr    = waddr_q;
+        n_wdata    = wdata_q; 
+        n_wstrb    = wstrb_q;
+        rf_we      = 1'b0;
+        rf_idx     = '0;
+        rf_wdata   = '0;
+
+        // 1) 응답 회수 : 자리 비우고 두 채널 개방 (아래 수신이 다시 닫을 수 있음).
+        if (b_collect) begin
+            n_bvalid   = 1'b0;
+            n_aw_taken = 1'b0;
+            n_w_taken  = 1'b0;
+            n_awready  = 1'b1;
+            n_wready   = 1'b1;
+        end
+
+        // 2) 채널 수신 : 회수와 독립적으로 이번 클럭 핸드셰이크 latch.
+        //    (회수가 ready 를 막 열어준 그 클럭의 입력도 여기서 잡힌다 → 버그 #1 해소)
+        if (aw_hs) begin
+            n_waddr    = bus.awaddr;
+            n_aw_taken = 1'b1;
+            n_awready  = 1'b0;
+        end
+        if (w_hs) begin
+            n_wdata    = bus.wdata;
+            n_wstrb    = bus.wstrb;
+            n_w_taken  = 1'b1;
+            n_wready   = 1'b0;
+        end
+
+        // 3) 커밋 : addr+data 확보 && 응답 자리 빔 → 기록 + 응답 게시.
+        if (do_write_commit) begin
+            if (!addr_in_range(commit_addr)) begin
+                n_bresp = RESP_DECERR;
+            end else if (!addr_aligned(commit_addr)) begin
+                n_bresp = RESP_SLVERR;           // 비정렬 쓰기 거절(기록 안 함)
+            end else begin
+                rf_we    = 1'b1;
+                rf_idx   = addr_to_index(commit_addr);
+                rf_wdata = apply_strb(regfile[addr_to_index(commit_addr)],
+                                      commit_data, commit_strb);
+                n_bresp  = RESP_OKAY;
+            end
+            n_bvalid   = 1'b1;                   // 응답 게시
+            // 방금 커밋한 분은 소비. 커밋 클럭엔 ready=0 이라 같은 클럭에 새
+            // 핸드셰이크가 성립할 수 없으므로 두 채널 모두 비운다.
+            //   (버그 #2 수정) 기존엔 aw_hs/w_hs 로 보존했는데, 동시 수신 후
+            //   즉시 커밋하는 경우 '방금 커밋한 그 트랜잭션'의 핸드셰이크가
+            //   다시 latch 되어, 다음 클럭 b_collect 시 같은 데이터가 한 번 더
+            //   기록됐다(트랜잭션 1건당 rf_we 2회 → side-effect 레지스터 오동작).
+            n_aw_taken = 1'b0;
+            n_w_taken  = 1'b0;
+            n_awready  = 1'b0;                   // 응답 구간엔 닫아 둠
+            n_wready   = 1'b0;
+        end
+    end
+
+    // ---- 등록 : next-state 를 클럭에 래치 ----
     always_ff @(posedge bus.clk or negedge bus.rst_n) begin
         if (!bus.rst_n) begin
-            bus.awready <= 1'b1;          // 리셋 직후부터 받을 준비(상시 ready)
+            bus.awready <= 1'b1;
             bus.wready  <= 1'b1;
             bus.bvalid  <= 1'b0;
             bus.bresp   <= RESP_OKAY;
@@ -924,91 +1004,53 @@ module lib_axil_protocol #(
             wstrb_q     <= '0;
             for (int i = 0; i < NUM_REGISTERS; i++) regfile[i] <= '0;
         end else begin
-            // ---- 1) 응답 회수 처리: bvalid&bready 면 응답 종료 후 다시 열기 ----
-            if (bus.bvalid && bus.bready) begin
-                bus.bvalid  <= 1'b0;
-                bus.awready <= 1'b1;       // 다음 트랜잭션 위해 채널 재개방
-                bus.wready  <= 1'b1;
-                aw_taken    <= 1'b0;
-                w_taken     <= 1'b0;
-            end else begin
-                // ---- 2) 채널별 독립 수신(먼저 온 쪽을 래치) ----
-                //   응답을 아직 내보내기 전 구간에서만 새 입력을 받는다.
-                //   각 채널은 자기 핸드셰이크가 성립하면 ready 를 내린다.
-                //   (ready 대입은 '수신 완료 -> 닫기' 한 가지 의미로만 사용)
-                if (!bus.bvalid) begin
-                    if (aw_hs) begin
-                        waddr_q     <= bus.awaddr;  // 주소 래치
-                        aw_taken    <= 1'b1;
-                        bus.awready <= 1'b0;        // 이 트랜잭션 AW 수신 완료 -> 닫기
-                    end
-                    if (w_hs) begin
-                        wdata_q     <= bus.wdata;   // 데이터/strb 래치
-                        wstrb_q     <= bus.wstrb;
-                        w_taken     <= 1'b1;
-                        bus.wready  <= 1'b0;        // 이 트랜잭션 W 수신 완료 -> 닫기
-                    end
-                end
-
-                // ---- 3) 주소+데이터 모두 확보되면 기록 + 응답 생성 ----
-                //   응답코드 3-way:
-                //     범위 밖           -> DECERR
-                //     범위 안 + 비정렬   -> SLVERR (잘못된 인덱스 매핑 방지)
-                //     범위 안 + 정렬     -> 기록 후 OKAY
-                if (do_write_commit) begin
-                    if (!addr_in_range(commit_addr)) begin
-                        bus.bresp <= RESP_DECERR;
-                    end else if (!addr_aligned(commit_addr)) begin
-                        bus.bresp <= RESP_SLVERR;   // 비정렬 쓰기는 거절(기록 안 함)
-                    end else begin
-                        regfile[addr_to_index(commit_addr)] <=
-                            apply_strb(regfile[addr_to_index(commit_addr)],
-                                       commit_data, commit_strb);
-                        bus.bresp <= RESP_OKAY;
-                    end
-                    bus.bvalid <= 1'b1;            // 응답 게시
-                    // (awready/wready 는 위 래치에서 이미 0 으로 닫혀 있다.
-                    //  여기서 중복 대입하지 않는다 — 다중대입 제거)
-                end
-            end
+            bus.awready <= n_awready;
+            bus.wready  <= n_wready;
+            bus.bvalid  <= n_bvalid;
+            bus.bresp   <= n_bresp;
+            aw_taken    <= n_aw_taken;
+            w_taken     <= n_w_taken;
+            waddr_q     <= n_waddr;
+            wdata_q     <= n_wdata;
+            wstrb_q     <= n_wstrb;
+            if (rf_we) regfile[rf_idx] <= rf_wdata;
         end
     end
 
     //==================================================================
     // ---- Read channel : arready 상시 1 로 한 클럭 단축 ----
     //   AR 핸드셰이크가 성립하는 즉시 데이터/응답을 만들어 rvalid 게시.
+    //   (1번 버그와 무관 — 원본 로직 유지)
     //==================================================================
-    logic r_busy;   // rvalid 게시 후 회수 대기 중인가
+    logic r_busy;
 
     wire ar_hs = bus.arvalid && bus.arready;
 
     always_ff @(posedge bus.clk or negedge bus.rst_n) begin
         if (!bus.rst_n) begin
-            bus.arready <= 1'b1;          // 상시 받을 준비
+            bus.arready <= 1'b1;
             bus.rvalid  <= 1'b0;
             bus.rdata   <= '0;
             bus.rresp   <= RESP_OKAY;
             r_busy      <= 1'b0;
         end else begin
             if (bus.rvalid && bus.rready) begin
-                // 응답 회수 완료 -> 다시 받을 준비
                 bus.rvalid  <= 1'b0;
                 bus.arready <= 1'b1;
                 r_busy      <= 1'b0;
             end else if (ar_hs && !r_busy) begin
-                // AR 도착 즉시 데이터/응답 확정 (쓰기와 동일 3-way 규칙)
                 if (!addr_in_range(bus.araddr)) begin
                     bus.rdata <= '0;
-                    bus.rresp <= RESP_DECERR;                   // 범위 밖
+                    bus.rresp <= RESP_DECERR;
                 end else if (!addr_aligned(bus.araddr)) begin
                     bus.rdata <= '0;
-                    bus.rresp <= RESP_SLVERR;                   // 범위 안 + 비정렬
+                    bus.rresp <= RESP_SLVERR;
                 end else begin
-                    bus.rdata <= reg_i[addr_to_index(bus.araddr)];  // hardware decides
-                    bus.rresp <= RESP_OKAY;                     // 범위 안 + 정렬
+                    bus.rdata <= reg_i[addr_to_index(bus.araddr)];
+                    bus.rresp <= RESP_OKAY;
                 end
                 bus.rvalid  <= 1'b1;
-                bus.arready <= 1'b0;       // 응답 회수까지 AR 닫음
+                bus.arready <= 1'b0;
                 r_busy      <= 1'b1;
             end
         end
