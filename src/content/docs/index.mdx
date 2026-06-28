@@ -1,40 +1,22 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
-template: splash # Remove or comment out this line to display the site sidebar on this page.
+title: 안녕하세요 👋
+description: 반도체 설계와 AI를 공부하고 기록하는 공간입니다.
+template: splash
 hero:
-  tagline: Congrats on setting up a new Starlight project!
-  image:
-    file: ../../assets/houston.webp
+  tagline: RTL 검증 · FPGA · 무선통신 · AI 를 공부하고 정리합니다.
   actions:
-    - text: Example Guide
-      link: /guides/example/
+    - text: 기술 문서 보기
+      link: /rtl/uvm-verification/
       icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
-      icon: external
-      variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
+## 무엇을 다루나요
 
-<CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
-	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
-	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
-	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
-	</Card>
+<CardGrid>
+  <Card title="AI" icon="seti:python">CNN, 딥러닝 기초와 가속기 구현.</Card>
+  <Card title="Wireless" icon="seti:default">OFDM, MIMO 등 무선통신 이론.</Card>
+  <Card title="FPGA" icon="seti:config">합성 흐름과 보드 구현 노트.</Card>
+  <Card title="RTL" icon="seti:systemverilog">SystemVerilog, UVM 검증 환경.</Card>
 </CardGrid>

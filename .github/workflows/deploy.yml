@@ -1,0 +1,38 @@
+name: Deploy to GitHub Pages
+
+on:
+  # main 브랜치에 push할 때마다 자동 실행
+  push:
+    branches: [main]
+  # Actions 탭에서 수동 실행도 가능하게
+  workflow_dispatch:
+
+# 이 워크플로우가 저장소를 읽고 Pages에 배포할 수 있도록 권한 부여
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout your repository using git
+        uses: actions/checkout@v4
+      - name: Install, build, and upload your site
+        uses: withastro/action@v3
+        with:
+          node-version: 22       # Astro 7 은 Node 22.12+ 필요 (기본 20이면 빌드 실패)
+        # 프로젝트가 저장소 루트가 아니라 하위 폴더에 있으면 아래 path를 지정
+        #   path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
