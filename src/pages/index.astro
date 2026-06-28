@@ -1,6 +1,10 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { Card, CardGrid } from '@astrojs/starlight/components';
+
+// base 를 자동으로 읽어 링크 앞에 붙임 (로컬: '/', 배포: '/ASTRO_BLOG/')
+const base = import.meta.env.BASE_URL;
+const link = (p) => `${base.replace(/\/$/, '')}/${p.replace(/^\//, '')}`;
 ---
 <StarlightPage frontmatter={{
   title: '안녕하세요 👋',
@@ -8,7 +12,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
   hero: {
     tagline: 'RTL 검증 · FPGA · 무선통신 · AI 를 공부하고 정리합니다.',
     actions: [
-      { text: '기술 문서 보기', link: '/rtl/uvm-verification/', icon: 'right-arrow', variant: 'primary' },
+      { text: '기술 문서 보기', link: link('/rtl/uvm-verification/'), icon: 'right-arrow', variant: 'primary' },
       { text: 'GitHub', link: 'https://github.com/egghwan', icon: 'external', variant: 'minimal' },
     ],
   },
