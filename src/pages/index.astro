@@ -1,0 +1,23 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { Card, CardGrid } from '@astrojs/starlight/components';
+---
+<StarlightPage frontmatter={{
+  title: '안녕하세요 👋',
+  template: 'splash',
+  hero: {
+    tagline: 'RTL 검증 · FPGA · 무선통신 · AI 를 공부하고 정리합니다.',
+    actions: [
+      { text: '기술 문서 보기', link: '/rtl/uvm-verification/', icon: 'right-arrow', variant: 'primary' },
+      { text: 'GitHub', link: 'https://github.com/egghwan', icon: 'external', variant: 'minimal' },
+    ],
+  },
+}}>
+  <h2>무엇을 다루나요</h2>
+  <CardGrid>
+    <Card title="AI" icon="seti:python">CNN, 딥러닝 기초와 가속기 구현.</Card>
+    <Card title="Wireless" icon="seti:default">OFDM, MIMO 등 무선통신 이론.</Card>
+    <Card title="FPGA" icon="seti:config">합성 흐름과 보드 구현 노트.</Card>
+    <Card title="RTL" icon="seti:systemverilog">SystemVerilog, UVM 검증 환경.</Card>
+  </CardGrid>
+</StarlightPage>
