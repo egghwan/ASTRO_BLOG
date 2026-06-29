@@ -160,7 +160,7 @@ CPU가 레지스터 한 칸에 값을 쓸 때, 세 채널(AW → W → B)이 순
 
 > CPU가 쓴 값을 `regfile` 배열에 저장하고(그 값은 `reg_o`로 하드웨어에도 노출), 읽기 요청에는 하드웨어가 준 `reg_i` 값을 돌려준다. 주소가 범위를 벗어나면 DECERR, 비정렬이면 SLVERR.
 
-구조는 크게 다섯 덩어리이다. 파라미터·포트 선언, 상수와 저장소, 헬퍼 함수 4개, **병렬 수신 쓰기 로직**, 읽기 로직. 쓰기와 읽기가 **완전히 분리된 두 개의 `always_ff`**로 구현되어 있다는 점이 핵심이다. AXI의 채널 독립성을 그대로 코드 구조로 옮긴 것이다.
+구조는 크게 다섯 덩어리이다. 파라미터·포트 선언, 상수와 저장소, 헬퍼 함수 4개, **병렬 수신 쓰기 로직**, 읽기 로직. 쓰기 로직은 next-state를 계산하는 **조합 블록(`always_comb`)과 그것을 래치하는 등록 블록(`always_ff`)의 2-process 구조**이고, 읽기 로직은 별도의 `always_ff` 하나이다. 쓰기와 읽기가 이렇게 분리돼 있다는 점이 핵심이다. AXI의 채널 독립성을 그대로 코드 구조로 옮긴 것이다.
 
 ```
 lib_axil_protocol
@@ -172,12 +172,12 @@ lib_axil_protocol
 │   ├─ addr_aligned()    4바이트 정렬인가? (신규)
 │   ├─ addr_to_index()   주소 → 레지스터 인덱스
 │   └─ apply_strb()      바이트 마스크 적용
-├─ 쓰기 로직 (병렬 수신: aw_taken/w_taken latch → 합류 시 기록)
+├─ 쓰기 로직 (2-process: always_comb 회수/수신/커밋 → always_ff 래치)
 └─ 읽기 로직 (arready 상시 1 → 즉시 응답)
 ```
 
 :::note[이전 버전과의 차이]
-이전 버전은 쓰기가 직렬 FSM(`W_IDLE → W_DATA → W_RESP`)이고 헬퍼가 3개였다. 이번 버전은 **병렬 수신 구조**로 바뀌고 정렬 검사(`addr_aligned`)가 추가되어 헬퍼가 4개가 됐다. 그 결과 더 빠르고(트랜잭션당 ~2클럭), 더 안전하다(비정렬 SLVERR). 자세한 건 8번에서 다룬다.
+이전 버전은 쓰기가 직렬 FSM(`W_IDLE → W_DATA → W_RESP`)이고 헬퍼가 3개였다. 이번 버전은 **병렬 수신 + 2-process 구조**로 바뀌고 정렬 검사(`addr_aligned`)가 추가되어 헬퍼가 4개가 됐다. 그 결과 더 빠르고(트랜잭션당 ~2클럭), 더 안전하다(비정렬 SLVERR). 또 회수·수신·커밋을 독립된 `if`로 분리하면서 back-to-back race(버그 #1)와 커밋 중복 latch(버그 #2)를 함께 잡았다. 자세한 건 8번에서 다룬다.
 :::
 
 ## 5. 포트와 파라미터 — 줄 단위 설명
@@ -210,7 +210,6 @@ module lib_axil_protocol #(
 localparam int STRB_WIDTH   = DATA_WIDTH/8;
 localparam int REGION_BYTES = NUM_REGISTERS * STRB_WIDTH;
 localparam int IDX_WIDTH    = $clog2(NUM_REGISTERS);
-localparam int OFFW         = $clog2(REGION_BYTES);
 
 localparam logic [1:0] RESP_OKAY   = 2'b00;
 localparam logic [1:0] RESP_SLVERR = 2'b10;
@@ -222,7 +221,6 @@ logic [DATA_WIDTH-1:0] regfile [NUM_REGISTERS];
 - `STRB_WIDTH = DATA_WIDTH/8`: 데이터의 바이트 수. 32비트면 4.
 - `REGION_BYTES`: 이 레지스터맵이 차지하는 전체 바이트 크기 (레지스터 수 × 4).
 - `IDX_WIDTH = $clog2(NUM_REGISTERS)`: 레지스터 인덱스를 표현하는 데 필요한 비트 수.
-- `OFFW = $clog2(REGION_BYTES)`: 영역 오프셋 비트 수 (인덱스 추출 등에 보조적으로 사용).
 - `RESP_*`: 앞서 설명한 2비트 응답 코드 상수.
 - `regfile`: CPU가 쓴 값을 실제로 보관하는 내부 배열. 이게 이 모듈의 "기억 장치"이다.
 
@@ -311,15 +309,21 @@ logic [STRB_WIDTH-1:0] wstrb_q;    // 래치한 strobe
 두 채널을 따로 받으니, 먼저 온 쪽을 기억해 둘 저장소가 필요하다. `aw_taken`/`w_taken`은 "이 채널을 이미 받았다"는 플래그이고, `waddr_q`/`wdata_q`/`wstrb_q`는 받은 값을 보관한다.
 
 ```systemverilog
-wire aw_hs = bus.awvalid && bus.awready;   // 이번 클럭 AW Handshake 성립?
-wire w_hs  = bus.wvalid  && bus.wready;     // 이번 클럭 W Handshake 성립?
+wire aw_hs    = bus.awvalid && bus.awready;   // 이번 클럭 AW Handshake 성립?
+wire w_hs     = bus.wvalid  && bus.wready;     // 이번 클럭 W Handshake 성립?
+wire b_collect = bus.bvalid && bus.bready;     // 이번 클럭 응답 회수?
 
-wire have_aw = aw_taken | aw_hs;            // 주소 확보됨 = 전에 받았거나 지금 받거나
+wire have_aw = aw_taken | aw_hs;               // 주소 확보됨 = 전에 받았거나 지금 받거나
 wire have_w  = w_taken  | w_hs;
-wire do_write_commit = have_aw && have_w && !bus.bvalid;  // 둘 다 모이면 기록
+
+// 응답 자리가 비어 있거나(미게시) 이번 클럭에 회수되면 커밋 가능.
+wire resp_slot_free  = (!bus.bvalid) || b_collect;
+wire do_write_commit = have_aw && have_w && resp_slot_free;
 ```
 
-`have_aw`와 `have_w`가 핵심이다. "주소가 확보됐다"는 건 **이전에 latch해뒀거나(`aw_taken`) 이번 클럭에 막 받거나(`aw_hs`)** 둘 중 하나이다. 데이터도 마찬가지이다. 그래서 둘 다 확보되면(`do_write_commit`) 그 즉시 레지스터에 쓴다. 어느 채널이 먼저 왔는지는 상관없다.
+`have_aw`와 `have_w`가 핵심이다. "주소가 확보됐다"는 건 **이전에 latch해뒀거나(`aw_taken`) 이번 클럭에 막 받거나(`aw_hs`)** 둘 중 하나이다. 데이터도 마찬가지이다. 그래서 둘 다 확보되고(`have_aw && have_w`) **응답 자리가 비어 있으면**(`resp_slot_free`) 그 즉시 기록한다. 어느 채널이 먼저 왔는지는 상관없다.
+
+여기서 `resp_slot_free`가 중요하다. 단순히 `!bvalid`만 보지 않고, **이번 클럭에 응답이 회수되는 경우(`b_collect`)도 자리가 비는 것으로 본다.** 덕분에 응답을 돌려주는 바로 그 클럭에 곧장 다음 트랜잭션을 커밋할 수 있어 back-to-back이 막히지 않는다.
 
 ```systemverilog
 wire [ADDR_WIDTH-1:0] commit_addr = aw_taken ? waddr_q : bus.awaddr;
@@ -329,7 +333,80 @@ wire [STRB_WIDTH-1:0] commit_strb = w_taken  ? wstrb_q : bus.wstrb;
 
 기록에 쓸 값을 고른다. 이전에 받아둔 값(`waddr_q` 등)이 있으면 그걸, 이번 클럭에 막 도착했으면 버스의 현재 값(`bus.awaddr` 등)을 쓴다. AW와 W가 **동시에** 와도 이 한 줄로 둘 다 정확히 잡힌다.
 
-### 리셋 — 처음부터 ready 열기
+### 2-process 구조 — 조합(next-state) + 등록(ff)
+
+이 쓰기 로직은 **하나의 `always_ff`에 모든 걸 욱여넣지 않고**, 다음 상태를 계산하는 조합 블록(`always_comb`)과 그 값을 클럭에 래치하는 등록 블록(`always_ff`)으로 나눈 **2-process 구조**이다. 이렇게 나눈 이유는 한 클럭에 **동시에 일어날 수 있는 세 사건(응답 회수 · 채널 수신 · 커밋)을 각각 독립적으로** next-state에 반영하기 위해서다.
+
+```systemverilog
+always_comb begin
+    // 기본값: 현재 상태 유지
+    n_awready  = bus.awready;  n_wready = bus.wready;
+    n_bvalid   = bus.bvalid;   n_bresp  = bus.bresp;
+    n_aw_taken = aw_taken;     n_w_taken = w_taken;
+    n_waddr    = waddr_q;      n_wdata   = wdata_q;  n_wstrb = wstrb_q;
+    rf_we = 1'b0;  rf_idx = '0;  rf_wdata = '0;
+
+    // 1) 응답 회수: 자리 비우고 두 채널 개방 (아래 수신이 다시 닫을 수 있음)
+    if (b_collect) begin
+        n_bvalid   = 1'b0;
+        n_aw_taken = 1'b0;  n_w_taken = 1'b0;
+        n_awready  = 1'b1;  n_wready  = 1'b1;
+    end
+
+    // 2) 채널 수신: 회수와 독립적으로 이번 클럭 핸드셰이크 latch
+    if (aw_hs) begin
+        n_waddr = bus.awaddr;  n_aw_taken = 1'b1;  n_awready = 1'b0;
+    end
+    if (w_hs) begin
+        n_wdata = bus.wdata;  n_wstrb = bus.wstrb;
+        n_w_taken = 1'b1;     n_wready = 1'b0;
+    end
+
+    // 3) 커밋: addr+data 확보 && 응답 자리 빔 → 기록 + 응답 게시
+    if (do_write_commit) begin
+        ...
+    end
+end
+```
+
+세 부분으로 나뉜다. **(1) 응답 회수**: 마스터가 이전 응답을 받아가면(`b_collect`) bvalid를 내리고 두 채널을 다시 열어 다음 트랜잭션을 준비한다. **(2) 독립 수신**: AW나 W Handshake가 성립하면 각자 값을 latch하고, **그 채널만** ready를 내려 같은 값을 중복으로 받지 않게 한다. **(3) 커밋**: 주소·데이터가 모두 확보되면 레지스터에 쓴다.
+
+핵심은 이 셋이 **상호배타 `if/else`가 아니라 독립된 세 개의 `if`** 라는 점이다. 그래서 회수가 ready를 막 열어준 **바로 그 클럭에 도착한 새 핸드셰이크도 (2)에서 정상적으로 latch된다.** 이것이 아래 :::note에서 설명하는 버그 #1 수정의 핵심이다.
+
+:::note[버그 #1 — 응답 회수와 동시 수신의 race]
+이전 1-process 구현은 수신 latch가 `if (bvalid && bready) ... else ...`의 **else에 갇혀 있었다.** 그래서 응답을 회수하는 바로 그 클럭에는 수신 로직이 평가되지 않았다. 그 클럭에 마스터가 `ready=1`을 보고 다음 트랜잭션의 AW/W를 올리면 그 핸드셰이크가 통째로 버려져 데이터가 유실됐다(back-to-back에서 재현). 2-process로 분리해 회수·수신·커밋을 독립된 `if`로 만들면서 이 race가 사라졌다.
+:::
+
+### 응답 코드 — 3가지 (DECERR + SLVERR)
+
+```systemverilog
+    if (do_write_commit) begin
+        if (!addr_in_range(commit_addr)) begin
+            n_bresp = RESP_DECERR;               // 범위 밖
+        end else if (!addr_aligned(commit_addr)) begin
+            n_bresp = RESP_SLVERR;               // 범위 안 + 비정렬 (기록 안 함)
+        end else begin
+            rf_we    = 1'b1;
+            rf_idx   = addr_to_index(commit_addr);
+            rf_wdata = apply_strb(regfile[addr_to_index(commit_addr)],
+                                  commit_data, commit_strb);
+            n_bresp  = RESP_OKAY;                // 범위 안 + 정렬
+        end
+        n_bvalid   = 1'b1;                       // 응답 게시
+        n_aw_taken = 1'b0;  n_w_taken = 1'b0;    // 방금 커밋한 분 소비
+        n_awready  = 1'b0;  n_wready  = 1'b0;    // 응답 구간엔 닫아 둠
+    end
+```
+
+커밋 시 주소를 **3단계로 검사**한다. 범위를 벗어나면 `DECERR`, 범위 안이지만 4바이트 정렬이 아니면 `SLVERR`(이때는 기록하지 않음), 정렬까지 맞으면 strobe를 적용해 저장하고 `OKAY`이다. 실제 기록은 여기서 바로 하지 않고 `rf_we`/`rf_idx`/`rf_wdata` 신호만 세워 두며, 등록 블록(`always_ff`)이 이를 받아 클럭 엣지에 `regfile`에 쓴다.
+
+커밋 직후에는 `aw_taken`/`w_taken`을 모두 비우고 두 채널의 ready도 닫는다.
+
+:::note[버그 #2 — 커밋과 동시에 핸드셰이크 중복 latch]
+커밋 클럭에 `aw_taken`/`w_taken`을 `aw_hs`/`w_hs`로 보존하면, 동시 수신 후 즉시 커밋하는 경우 **'방금 커밋한 그 트랜잭션'의 핸드셰이크가 다시 latch**되어, 다음 클럭 `b_collect` 시 같은 데이터가 한 번 더 기록됐다(트랜잭션 1건당 `rf_we` 2회 → side-effect 레지스터 오동작). 커밋 클럭엔 ready=0이라 같은 클럭에 새 핸드셰이크가 성립할 수 없으므로, 커밋 시 두 채널을 모두 비우는 게 맞다.
+:::
+
+### 등록 — next-state를 클럭에 래치
 
 ```systemverilog
 always_ff @(posedge bus.clk or negedge bus.rst_n) begin
@@ -338,68 +415,20 @@ always_ff @(posedge bus.clk or negedge bus.rst_n) begin
         bus.wready  <= 1'b1;
         bus.bvalid  <= 1'b0;
         bus.bresp   <= RESP_OKAY;
-        aw_taken    <= 1'b0;
-        w_taken     <= 1'b0;
-        ...
+        aw_taken    <= 1'b0;  w_taken <= 1'b0;
+        waddr_q     <= '0;    wdata_q <= '0;  wstrb_q <= '0;
         for (int i = 0; i < NUM_REGISTERS; i++) regfile[i] <= '0;
     end else begin
+        bus.awready <= n_awready;  bus.wready <= n_wready;
+        bus.bvalid  <= n_bvalid;   bus.bresp  <= n_bresp;
+        aw_taken    <= n_aw_taken;  w_taken   <= n_w_taken;
+        waddr_q     <= n_waddr;  wdata_q <= n_wdata;  wstrb_q <= n_wstrb;
+        if (rf_we) regfile[rf_idx] <= rf_wdata;
+    end
+end
 ```
 
-리셋 직후부터 `awready=1`, `wready=1`로 **두 채널을 다 열어둔다.** 그래서 마스터가 언제 무엇을 보내든 바로 받을 수 있다.
-
-### 동작 본체 — 회수, 수신, 기록
-
-```systemverilog
-        // 1) 응답 회수: bvalid&bready 면 응답 끝내고 채널 다시 열기
-        if (bus.bvalid && bus.bready) begin
-            bus.bvalid  <= 1'b0;
-            bus.awready <= 1'b1;
-            bus.wready  <= 1'b1;
-            aw_taken    <= 1'b0;
-            w_taken     <= 1'b0;
-        end else begin
-            // 2) 채널별 독립 수신 (먼저 온 쪽을 래치)
-            if (!bus.bvalid) begin
-                if (aw_hs) begin
-                    waddr_q     <= bus.awaddr;
-                    aw_taken    <= 1'b1;
-                    bus.awready <= 1'b0;     // 이 트랜잭션 AW 수신 완료 -> 닫기
-                end
-                if (w_hs) begin
-                    wdata_q     <= bus.wdata;
-                    wstrb_q     <= bus.wstrb;
-                    w_taken     <= 1'b1;
-                    bus.wready  <= 1'b0;     // 이 트랜잭션 W 수신 완료 -> 닫기
-                end
-            end
-            // 3) 주소+데이터 모두 확보되면 기록 + 응답
-            if (do_write_commit) begin
-                ...
-            end
-        end
-```
-
-세 부분으로 나뉜다. **(1) 응답 회수**: 마스터가 이전 응답을 받아가면 bvalid를 내리고 두 채널을 다시 열어 다음 트랜잭션을 준비한다. **(2) 독립 수신**: AW나 W Handshake가 성립하면 각자 값을 latch하고, **그 채널만** ready를 내려 같은 값을 중복으로 받지 않게 한다. **(3) 기록**: 주소·데이터가 모두 확보되면 레지스터에 쓴다.
-
-### 응답 코드 — 이제 3가지 (DECERR + SLVERR 추가)
-
-```systemverilog
-            if (do_write_commit) begin
-                if (!addr_in_range(commit_addr)) begin
-                    bus.bresp <= RESP_DECERR;        // 범위 밖
-                end else if (!addr_aligned(commit_addr)) begin
-                    bus.bresp <= RESP_SLVERR;        // 범위 안 + 비정렬 (기록 안 함)
-                end else begin
-                    regfile[addr_to_index(commit_addr)] <=
-                        apply_strb(regfile[addr_to_index(commit_addr)],
-                                   commit_data, commit_strb);
-                    bus.bresp <= RESP_OKAY;          // 범위 안 + 정렬
-                end
-                bus.bvalid <= 1'b1;                  // 응답 게시
-            end
-```
-
-기록 시 주소를 **3단계로 검사**한다. 범위를 벗어나면 `DECERR`, 범위 안이지만 4바이트 정렬이 아니면 `SLVERR`(이때는 기록하지 않음), 정렬까지 맞으면 strobe를 적용해 저장하고 `OKAY`이다. SLVERR는 이번 버전에서 새로 추가된 처리로, 비정렬 주소가 엉뚱한 레지스터를 건드리는 것을 막다.
+등록 블록은 단순하다. 리셋 시 `awready=1`/`wready=1`로 **두 채널을 다 열어두고**(상시 ready), 그 외에는 조합 블록이 계산한 next-state(`n_*`)를 그대로 클럭 엣지에 래치한다. 실제 `regfile` 쓰기도 여기서 `rf_we`가 섰을 때만 한 번 일어난다. 모든 상태 변경이 이 한 블록에 모여 있어 race가 끼어들 여지가 없다.
 
 타이밍으로 보면, AW와 W가 동시에 오는 경우 이렇게 2클럭에 끝난다.
 
