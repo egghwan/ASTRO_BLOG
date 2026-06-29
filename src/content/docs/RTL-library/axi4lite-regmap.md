@@ -1,5 +1,5 @@
 ---
-title: AXI4-Lite 슬레이브 레지스터맵 (libregmap) 완전 분석
+title: AXI4-Lite 슬레이브 레지스터맵 : lib_axil_regmap.sv
 description: FPGA의 PS-PL 인터페이스에서 쓰이는 AXI4-Lite 슬레이브 레지스터맵을, 프로토콜 흐름부터 다섯 개 RTL 파일의 모든 줄까지 자세히 설명한다.
 ---
 
