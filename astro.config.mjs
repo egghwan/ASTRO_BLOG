@@ -55,6 +55,7 @@ export default defineConfig({
       //  글을 추가하면 사이드바도 자동 갱신 — 일일이 등록할 필요 없음.
       sidebar: [
         { label: 'AI',                     items: [{ autogenerate: { directory: 'ai' } }] },
+        { label: 'Digital Signal Processing',                     items: [{ autogenerate: { directory: 'dsp' } }] },
         { label: 'Wireless Communication', items: [{ autogenerate: { directory: 'wireless' } }] },
         { label: 'RTL Library',                     items: [{ autogenerate: { directory: 'RTL-library' } }] },
         { label: 'FPGA Demo',                   items: [{ autogenerate: { directory: 'fpga' } }] },
