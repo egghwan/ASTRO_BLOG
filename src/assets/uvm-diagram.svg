@@ -1,0 +1,143 @@
+<svg viewBox="0 0 1180 660" xmlns="http://www.w3.org/2000/svg" font-family="'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="solid" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M1,1 L8,5 L1,9" fill="none" stroke="#1f2937" stroke-width="1.5"/>
+    </marker>
+    <marker id="tlm" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M1,1 L8,5 L1,9" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+    </marker>
+    <marker id="vif" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M1,1 L8,5 L1,9" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1180" height="660" fill="#ffffff"/>
+
+  <!-- top_tb -->
+  <rect x="20" y="20" width="60" height="560" rx="0" fill="none"/>
+  <rect x="24" y="20" width="812" height="34" rx="4" fill="#dbe4ef" stroke="#5b7da6" stroke-width="1.3"/>
+  <text x="430" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">SystemVerilog Top 모듈  (tb_lib_axil_regmap_uvm)</text>
+
+  <!-- uvm_root frame -->
+  <rect x="24" y="64" width="812" height="486" rx="6" fill="#eef4fb" stroke="#5b7da6" stroke-width="1.3"/>
+  <text x="40" y="84" font-size="12.5" font-weight="700" fill="#33506f">uvm_root</text>
+
+  <!-- test -->
+  <rect x="42" y="92" width="780" height="446" rx="6" fill="#e7f0f9" stroke="#5b7da6" stroke-width="1.2"/>
+  <text x="58" y="112" font-size="12.5" font-weight="700" fill="#33506f">axil_random_test   (사장)</text>
+
+  <!-- env -->
+  <rect x="60" y="120" width="746" height="406" rx="6" fill="#eaf6ef" stroke="#4e9c79" stroke-width="1.2"/>
+  <text x="76" y="140" font-size="12.5" font-weight="700" fill="#1f6b46">axil_env   env   (본부장)</text>
+
+  <!-- agent -->
+  <rect x="78" y="150" width="430" height="362" rx="6" fill="#eef4fb" stroke="#5b7da6" stroke-width="1.2"/>
+  <text x="94" y="170" font-size="12.5" font-weight="700" fill="#33506f">axil_agent   agent   (팀장)</text>
+
+  <!-- sequencer -->
+  <rect x="150" y="190" width="300" height="58" rx="6" fill="#cfe0f1" stroke="#3f6fa3" stroke-width="1.5"/>
+  <text x="300" y="214" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a5f">axil_sequencer   seqr  (파트장)</text>
+  <text x="300" y="232" text-anchor="middle" font-size="10.5" fill="#3f6fa3">전표를 받아 driver에 배분</text>
+
+  <!-- sequence (floating object, right of sequencer) -->
+  <rect x="150" y="190" width="0" height="0"/>
+  <text x="470" y="186" font-size="10.5" fill="#7a5b2e">axil_*_seq (시퀀스)</text>
+
+  <!-- driver -->
+  <rect x="150" y="300" width="300" height="62" rx="6" fill="#cfe0f1" stroke="#2563eb" stroke-width="1.8"/>
+  <text x="300" y="324" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a5f">axil_driver   drv   (실무자) ★</text>
+  <text x="300" y="342" text-anchor="middle" font-size="10.5" fill="#2563eb">drive_write() / drive_read()</text>
+
+  <!-- monitor -->
+  <rect x="150" y="410" width="300" height="62" rx="6" fill="#cfe0f1" stroke="#c2731a" stroke-width="1.8"/>
+  <text x="300" y="434" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a5f">axil_monitor   mon   (감사팀)</text>
+  <text x="300" y="452" text-anchor="middle" font-size="10.5" fill="#c2731a">mon_write() / mon_read()</text>
+
+  <!-- scoreboard -->
+  <rect x="528" y="190" width="262" height="84" rx="6" fill="#cfe0f1" stroke="#2f8f5b" stroke-width="1.6"/>
+  <text x="659" y="214" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f6b46">axil_scoreboard   sb</text>
+  <text x="659" y="232" text-anchor="middle" font-size="10.5" fill="#2f8f5b">(QA) 정답표 대조 → PASS/FAIL</text>
+  <text x="659" y="252" text-anchor="middle" font-size="10.5" fill="#2f8f5b">write_axil()  ·  imp 단자로 수신</text>
+
+  <!-- coverage -->
+  <rect x="528" y="300" width="262" height="84" rx="6" fill="#cfe0f1" stroke="#8e44ad" stroke-width="1.6"/>
+  <text x="659" y="324" text-anchor="middle" font-size="12.5" font-weight="700" fill="#6b2c86">axil_coverage   cov</text>
+  <text x="659" y="342" text-anchor="middle" font-size="10.5" fill="#8e44ad">(집계) 어떤 경우 봤나 통계</text>
+  <text x="659" y="362" text-anchor="middle" font-size="10.5" fill="#8e44ad">write()  ·  analysis_export 단자로 수신</text>
+
+  <!-- ===== right side: interface + DUT + transaction ===== -->
+
+  <!-- vif vertical band -->
+  <rect x="848" y="64" width="34" height="486" rx="4" fill="#eaf1fb" stroke="#2563eb" stroke-width="1.3" stroke-dasharray="5 4"/>
+  <text x="865" y="300" font-size="11.5" font-weight="700" fill="#1e40af" transform="rotate(-90 865 300)">axi4_lite_if  가상 인터페이스 (vif)</text>
+
+  <!-- DUT -->
+  <rect x="912" y="20" width="244" height="96" rx="6" fill="#e5e7eb" stroke="#374151" stroke-width="1.6"/>
+  <text x="1034" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#1f2937">DUT (검증 대상)</text>
+  <text x="1034" y="72" text-anchor="middle" font-size="12" fill="#374151">lib_axil_protocol   dut</text>
+  <text x="1034" y="92" text-anchor="middle" font-size="10.5" fill="#6b7280">우리가 만든 회로 (앞 글)</text>
+
+  <!-- transaction / sequence boxes -->
+  <rect x="912" y="220" width="244" height="60" rx="6" fill="#fdf1dc" stroke="#c2731a" stroke-width="1.4"/>
+  <text x="1034" y="246" text-anchor="middle" font-size="12.5" font-weight="700" fill="#8a5418">axil_*_seq</text>
+  <text x="1034" y="266" text-anchor="middle" font-size="10.5" fill="#b07a2e">시퀀스 (uvm_sequence)</text>
+
+  <rect x="912" y="300" width="244" height="64" rx="6" fill="#fdf1dc" stroke="#c2731a" stroke-width="1.4"/>
+  <text x="1034" y="326" text-anchor="middle" font-size="12.5" font-weight="700" fill="#8a5418">axil_seq_item</text>
+  <text x="1034" y="346" text-anchor="middle" font-size="10.5" fill="#b07a2e">트랜잭션=전표 (uvm_sequence_item)</text>
+
+  <!-- ===== connections ===== -->
+
+  <!-- hierarchy (solid): top->root->test->env->agent->components -->
+  <line x1="430" y1="54" x2="430" y2="92" stroke="#1f2937" stroke-width="1.4" marker-end="url(#solid)"/>
+  <line x1="120" y1="170" x2="120" y2="216" stroke="#1f2937" stroke-width="1.3" marker-end="url(#solid)"/>
+  <line x1="120" y1="216" x2="148" y2="216" stroke="#1f2937" stroke-width="1.3" marker-end="url(#solid)"/>
+  <line x1="120" y1="170" x2="120" y2="328" stroke="#1f2937" stroke-width="1.3"/>
+  <line x1="120" y1="328" x2="148" y2="328" stroke="#1f2937" stroke-width="1.3" marker-end="url(#solid)"/>
+  <line x1="120" y1="170" x2="120" y2="438" stroke="#1f2937" stroke-width="1.3"/>
+  <line x1="120" y1="438" x2="148" y2="438" stroke="#1f2937" stroke-width="1.3" marker-end="url(#solid)"/>
+  <line x1="610" y1="140" x2="610" y2="188" stroke="#1f2937" stroke-width="1.3" marker-end="url(#solid)"/>
+  <line x1="700" y1="140" x2="700" y2="298" stroke="#1f2937" stroke-width="1.3" marker-end="url(#solid)"/>
+
+  <!-- seq_item_port <-> seq_item_export (driver <-> sequencer) TLM -->
+  <line x1="300" y1="300" x2="300" y2="248" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#tlm)"/>
+  <text x="306" y="278" font-size="10" fill="#6b7280">seq_item_port ↔ seq_item_export</text>
+
+  <!-- monitor ap -> scoreboard imp (TLM) -->
+  <path d="M450,428 L500,428 L500,232 L526,232" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#tlm)"/>
+  <!-- monitor ap -> coverage analysis_export (TLM) -->
+  <path d="M450,452 L486,452 L486,342 L526,342" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#tlm)"/>
+  <text x="456" y="408" font-size="10" fill="#6b7280">ap.write(tr) 방송</text>
+
+  <!-- driver <-> vif : exit agent box to the right, run down env empty area -->
+  <path d="M450,318 L514,318 L514,492 L824,492 L824,300 L846,300" fill="none" stroke="#2563eb" stroke-width="1.4" stroke-dasharray="6 3" marker-end="url(#vif)"/>
+  <text x="540" y="486" font-size="10" fill="#2563eb">master_cb (driver가 신호 구동)</text>
+  <!-- monitor <-> vif -->
+  <path d="M450,448 L514,448 L514,470 L808,470 L808,400 L846,400" fill="none" stroke="#2563eb" stroke-width="1.4" stroke-dasharray="6 3" marker-end="url(#vif)"/>
+  <text x="600" y="464" font-size="10" fill="#2563eb">monitor_cb (monitor가 관찰)</text>
+
+  <!-- vif <-> DUT (blue) -->
+  <line x1="882" y1="120" x2="910" y2="90" stroke="#2563eb" stroke-width="1.6" stroke-dasharray="6 3" marker-end="url(#vif)"/>
+
+  <!-- sequence -> seq_item (data flow) -->
+  <line x1="1034" y1="280" x2="1034" y2="298" stroke="#6b7280" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#tlm)"/>
+
+  <!-- ===== legend ===== -->
+  <rect x="24" y="566" width="1132" height="74" rx="6" fill="#fbfbfa" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="40" y="588" font-size="12" font-weight="700" fill="#374151">범례</text>
+
+  <line x1="96" y1="584" x2="150" y2="584" stroke="#1f2937" stroke-width="1.6" marker-end="url(#solid)"/>
+  <text x="158" y="588" font-size="11" fill="#374151">실선 = 계층 연결 (누가 누구를 만드는지)</text>
+
+  <line x1="470" y1="584" x2="524" y2="584" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#tlm)"/>
+  <text x="532" y="588" font-size="11" fill="#374151">회색 점선 = 데이터 흐름(TLM): 전표가 포트로 흐름</text>
+
+  <line x1="96" y1="614" x2="150" y2="614" stroke="#2563eb" stroke-width="1.6" stroke-dasharray="6 3" marker-end="url(#vif)"/>
+  <text x="158" y="618" font-size="11" fill="#374151">파란 점선 = 가상 인터페이스(vif): DUT 신호선과 연결</text>
+
+  <rect x="470" y="606" width="22" height="14" rx="3" fill="#fdf1dc" stroke="#c2731a" stroke-width="1.2"/>
+  <text x="500" y="618" font-size="11" fill="#374151">주황 박스 = UVM Object (트랜잭션/시퀀스)</text>
+
+  <rect x="888" y="606" width="22" height="14" rx="3" fill="#cfe0f1" stroke="#3f6fa3" stroke-width="1.2"/>
+  <text x="918" y="618" font-size="11" fill="#374151">파란 박스 = UVM Component</text>
+</svg>

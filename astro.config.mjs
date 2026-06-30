@@ -35,7 +35,7 @@ export default defineConfig({
 
   integrations: [
     starlight({
-      title: '내 기술 블로그',
+      title: 'Eggmo',
       customCss: ['./src/styles/custom.css'],   // ← 이 줄 추가
       description: '반도체 설계 · RTL 검증 · AI 학습 기록',
 
