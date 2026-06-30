@@ -707,203 +707,203 @@ endclass                                                       // axil_sequencer
 
 ```systemverilog
 //======================================================================
-// axil_driver.sv
-//  AXI4-Lite master driver. Holds VALID until READY (no early deassert).
+//  AXI4-Lite master driver. Deasserts VALID on the SAME edge READY is seen.
 //----------------------------------------------------------------------
-// [회사 비유]  이 파일 = "현장 실무자(driver)".
-//   파트장(sequencer)에게 전표(seq_item)를 한 건 받아, 그 내용대로
-//   '실제 손(AXI 신호)을 움직여' DUT에게 일을 시키는 유일한 컴포넌트.
-//   지금까지(test/env/agent/seq)는 다 '지시'만 했고, 진짜 신호를
-//   흔드는 건 여기뿐이다.
+// [수정 요지]
+//   (이전) READY 를 본 '다음' 클럭에 VALID 를 내렸다. 이 한 박자 지연이
+//          registered-ready DUT 와 맞물려, 같은 VALID 가 핸드셰이크 클럭과
+//          그 다음 클럭 두 번에 걸쳐 READY=1 을 보면서 동일 트랜잭션이
+//          두 번 latch/commit 되었다(rf_we 2회, 같은 데이터 중복 기록).
+//   (수정) READY 를 감지한 '바로 그 엣지'에서 VALID 를 내린다(NBA 큐잉).
+//          clocking block 의 input #1step / output #1ns 스큐가 읽기·쓰기
+//          race 를 막아 주므로, 같은 엣지에 READY 를 읽고 VALID 를 내려도
+//          안전하다. 감지(got_*) 와 deassert 를 한 곳에서 동시에 처리한다.
 //
 //   [AXI4-Lite 핸드셰이크 기본 규칙]  *모든 채널 공통*
-//     보내는 쪽이 VALID=1 로 "준비됐다"고 알리고,
-//     받는 쪽이 READY=1 로 "받겠다"고 답하면,
-//     VALID & READY 가 같은 클럭에 둘 다 1인 순간 = 거래 1건 성립.
-//     이 driver 는 master(보내는 쪽)라서 VALID/주소/데이터를 만들고,
-//     DUT(slave)가 READY 를 돌려준다.
+//     VALID & READY 가 같은 클럭에 둘 다 1 = 거래 1건 성립.
+//     성립한 순간 그 엣지에서 VALID 를 내려 재포착을 막는다.
 //
 //   [채널 5개]
 //     쓰기: AW(주소) + W(데이터) -> B(응답)
 //     읽기: AR(주소)            -> R(데이터+응답)
 //======================================================================
-class axil_driver extends uvm_driver #(axil_seq_item);          // uvm_driver 상속. #(axil_seq_item)="이 전표양식을 받아 처리"
-    `uvm_component_utils(axil_driver)                          // UVM 공장에 실무자 등록
-    virtual axi4_lite_if vif;                                  // AXI 배선으로 가는 리모컨(가상 인터페이스). 실제 신호는 여기로 흔든다
+class axil_driver extends uvm_driver #(axil_seq_item);
+    `uvm_component_utils(axil_driver)
+    virtual axi4_lite_if vif;
 
-    function new(string name, uvm_component parent);           // 생성자 = 실무자 부임 // @suppress "The direction of the subroutine port is implicitly defined as 'input'"
-        super.new(name, parent);                              //
-    endfunction                                                //
-
-    //------------------------------------------------------------------
-    // build_phase : 부임 시, 흔들 배선(vif)을 게시판(config_db)에서 받아옴.
-    //------------------------------------------------------------------
-    function void build_phase(uvm_phase phase);                // // @suppress "The direction of the subroutine port is implicitly defined as 'input'"
-        super.build_phase(phase);                             //
-        if (!uvm_config_db#(virtual axi4_lite_if)::get(this, "", "vif", vif)) // AXI 인터페이스 리모컨 수령 시도
-            `uvm_fatal("DRV", "axi4_lite_if (vif) not set in config_db")      // 못 받으면 치명적 — 배선 없이는 신호 못 흔듦
-    endfunction                                                //
+    function new(string name, uvm_component parent);
+        super.new(name, parent);
+    endfunction
 
     //------------------------------------------------------------------
-    // run_phase : 실무자의 '근무 시간'. 전표를 끝없이 받아 처리하는 루프.
+    // build_phase : 흔들 배선(vif)을 config_db 에서 받아옴.
     //------------------------------------------------------------------
-    task run_phase(uvm_phase phase);                           // // @suppress "The direction of the subroutine port is implicitly defined as 'input'"
-        init_signals();                                       // 출근 직후 모든 출력 신호를 안전한 0으로 초기화
-        wait (vif.rst_n === 1'b1);                             // 리셋이 풀릴 때까지 대기(셔터 올라갈 때까지)
-        @(vif.master_cb);                                     // 클러킹블록 기준 1클럭 정렬(동기 시작점 맞추기)
-        forever begin                                         // 무한 근무 루프
-            seq_item_port.get_next_item(req);                 // 파트장에게 "다음 전표 주세요"(pull). 없으면 올 때까지 대기. req=받은 전표
-            if (req.dir == axil_seq_item::WRITE) drive_write(req); // 전표가 쓰기면 쓰기 절차 수행
-            else                                  drive_read(req);  // 아니면 읽기 절차 수행
-            seq_item_port.item_done();                        // "이 전표 처리 끝!" 파트장에게 완료 통보(finish_item 대기 해제)
-        end                                                   //
-    endtask                                                    //
+    function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+        if (!uvm_config_db#(virtual axi4_lite_if)::get(this, "", "vif", vif))
+            `uvm_fatal("DRV", "axi4_lite_if (vif) not set in config_db")
+    endfunction
 
     //------------------------------------------------------------------
-    // init_signals : 모든 master 출력 신호를 비활성(0)으로. 깨끗한 시작.
+    // run_phase : 전표를 끝없이 받아 처리하는 근무 루프.
     //------------------------------------------------------------------
-    task init_signals();                                       //
-        vif.master_cb.awvalid <= 1'b0;                        // 쓰기주소 VALID 끔
-        vif.master_cb.awaddr  <= '0;                          // 쓰기주소 0
-        vif.master_cb.awprot  <= '0;                          // 쓰기주소 권한 0
-        vif.master_cb.wvalid  <= 1'b0;                        // 쓰기데이터 VALID 끔
-        vif.master_cb.wdata   <= '0;                          // 쓰기데이터 0
-        vif.master_cb.wstrb   <= '0;                          // 바이트선택 0
-        vif.master_cb.bready  <= 1'b0;                        // 쓰기응답 받을준비 끔
-        vif.master_cb.arvalid <= 1'b0;                        // 읽기주소 VALID 끔
-        vif.master_cb.araddr  <= '0;                          // 읽기주소 0
-        vif.master_cb.arprot  <= '0;                          // 읽기주소 권한 0
-        vif.master_cb.rready  <= 1'b0;                        // 읽기데이터 받을준비 끔
-    endtask                                                    //
+    task run_phase(uvm_phase phase);
+        init_signals();
+        wait (vif.rst_n === 1'b1);
+        @(vif.master_cb);
+        forever begin
+            seq_item_port.get_next_item(req);
+            if (req.dir == axil_seq_item::WRITE) drive_write(req);
+            else                                  drive_read(req);
+            seq_item_port.item_done();
+        end
+    endtask
+
+    //------------------------------------------------------------------
+    // init_signals : 모든 master 출력 신호를 비활성(0)으로.
+    //------------------------------------------------------------------
+    task init_signals();
+        vif.master_cb.awvalid <= 1'b0;
+        vif.master_cb.awaddr  <= '0;
+        vif.master_cb.awprot  <= '0;
+        vif.master_cb.wvalid  <= 1'b0;
+        vif.master_cb.wdata   <= '0;
+        vif.master_cb.wstrb   <= '0;
+        vif.master_cb.bready  <= 1'b0;
+        vif.master_cb.arvalid <= 1'b0;
+        vif.master_cb.araddr  <= '0;
+        vif.master_cb.arprot  <= '0;
+        vif.master_cb.rready  <= 1'b0;
+    endtask
 
     //------------------------------------------------------------------
     // drive_write : 쓰기 1건 수행.
-    //   AW(주소)·W(데이터)를 동시에 VALID 켜서 내보내고, B(응답)를 회수.
-    //   AW와 W는 서로 다른 시점에 READY가 올 수 있어 각각 따로 추적한다.
-    //   규칙: VALID는 READY 받은 '다음' 클럭에 내린다(조기 해제 금지).
+    //   AW(주소)·W(데이터)를 VALID 켜 내보내고 B(응답) 회수.
+    //   규칙: VALID 는 READY 를 본 '그 엣지'에 내린다(조기/지연 없이 정확히 1회).
     //------------------------------------------------------------------
-    task drive_write(axil_seq_item tr);                        // // @suppress "The direction of the subroutine port is implicitly defined as 'input'"
-        bit got_aw = 1'b0;                                     // 쓰기주소 채널 거래 성립했나(awready 받았나)
-        bit got_w  = 1'b0;                                     // 쓰기데이터 채널 거래 성립했나(wready 받았나)
-        bit got_b  = 1'b0;                                     // 쓰기응답 받았나(bvalid 봤나)
-        int unsigned wait_cnt = 0;                             // 응답 대기 클럭 수(타임아웃 가드용)
-        // 응답 한도: AXI4-Lite 슬레이브라면 유한 클럭 안에 B 응답을 줘야 함.
-        // 한도 초과 = 프로토콜 위반(또는 deadlock) 으로 간주하고 빠져나온다.
+    task drive_write(axil_seq_item tr);
+        bit got_aw = 1'b0;                                     // AW 거래 성립(awready 봤나)
+        bit got_w  = 1'b0;                                     // W  거래 성립(wready 봤나)
+        bit got_b  = 1'b0;                                     // B  응답 받았나(bvalid 봤나)
+        int unsigned wait_cnt = 0;                             // 응답 대기 클럭 수(타임아웃)
         localparam int unsigned RESP_LIMIT = 64;
 
-        // ---- 데이터/주소/제어 값은 항상 먼저 세팅(값은 미리 실어둠) ----
-        //   VALID 타이밍만 aw_delay / w_delay 에 따라 분기한다.
-        //     aw_delay > 0  : W 먼저 VALID, AW 를 aw_delay 클럭 뒤 (W-before-AW)
-        //     w_delay  > 0  : AW 먼저 VALID, W 를 w_delay  클럭 뒤 (AW-before-W)
-        //     둘 다 0       : AW/W 동시 (기본)
-        //   ★ aw_delay 와 w_delay 는 동시에 >0 으로 쓰지 않는다.
-        vif.master_cb.wdata   <= tr.data;                      // W데이터 값 미리 실음
-        vif.master_cb.wstrb   <= tr.strb;                      // 바이트선택 값 미리 실음
-        vif.master_cb.bready  <= 1'b1;                         // B READY 켬(응답 받을 준비, 미리 켜둠)
-        vif.master_cb.awaddr  <= tr.addr;                      // AW주소 값 미리 실음
-        vif.master_cb.awprot  <= tr.prot;                      // AW권한 값 미리 실음
+        // ---- 값(주소/데이터/제어)은 항상 먼저 세팅 ----
+        vif.master_cb.wdata   <= tr.data;
+        vif.master_cb.wstrb   <= tr.strb;
+        vif.master_cb.bready  <= 1'b1;                         // B READY 미리 켬
+        vif.master_cb.awaddr  <= tr.addr;
+        vif.master_cb.awprot  <= tr.prot;
 
-        if (tr.aw_delay == 0 && tr.w_delay == 0) begin         // ---- 기본: AW/W 동시 구동 ----
-            vif.master_cb.awvalid <= 1'b1;                     //  AW VALID 즉시 켬
-            vif.master_cb.wvalid  <= 1'b1;                     //  W  VALID 즉시 켬
+        if (tr.aw_delay == 0 && tr.w_delay == 0) begin         // ---- 기본: AW/W 동시 ----
+            vif.master_cb.awvalid <= 1'b1;
+            vif.master_cb.wvalid  <= 1'b1;
         end
-        else if (tr.aw_delay > 0) begin                        // ---- W-before-AW: AW 를 지연 ----
-            vif.master_cb.wvalid  <= 1'b1;                     //  W 먼저 VALID
-            vif.master_cb.awvalid <= 1'b0;                     //  AW 는 아직 끔
+        else if (tr.aw_delay > 0) begin                        // ---- W-before-AW: AW 지연 ----
+            vif.master_cb.wvalid  <= 1'b1;
+            vif.master_cb.awvalid <= 1'b0;
             `uvm_info("DRV", $sformatf(
                 "W-before-AW: driving WVALID first, holding AWVALID for %0d cycle(s) (addr=0x%08h)",
                 tr.aw_delay, tr.addr), UVM_LOW)
-            repeat (tr.aw_delay) begin                         //  aw_delay 만큼 AW 보류(이 동안 W만 VALID)
-                @(vif.master_cb);                             //
-                // 지연 중에도 wready 펄스를 놓치지 않도록 폴링
-                if (!got_w && vif.master_cb.wready) begin      //  (이 DUT 에선 AW 전이라 안 뜨지만, 규격 슬레이브 대비)
+            repeat (tr.aw_delay) begin
+                @(vif.master_cb);
+                // 지연 중에도 wready 펄스를 놓치지 않도록 폴링 (감지=즉시 drop)
+                if (!got_w && vif.master_cb.wready) begin
                     got_w = 1'b1;
                     vif.master_cb.wvalid <= 1'b0;
                 end
             end
-            vif.master_cb.awvalid <= 1'b1;                    //  이제 AW VALID 켬
+            vif.master_cb.awvalid <= 1'b1;                     // 이제 AW VALID 켬
         end
-        else begin                                             // ---- AW-before-W: W 를 지연 ----
-            vif.master_cb.awvalid <= 1'b1;                     //  AW 먼저 VALID
-            vif.master_cb.wvalid  <= 1'b0;                     //  W 는 아직 끔
+        else begin                                             // ---- AW-before-W: W 지연 ----
+            vif.master_cb.awvalid <= 1'b1;
+            vif.master_cb.wvalid  <= 1'b0;
             `uvm_info("DRV", $sformatf(
                 "AW-before-W: driving AWVALID first, holding WVALID for %0d cycle(s) (addr=0x%08h)",
                 tr.w_delay, tr.addr), UVM_LOW)
-            repeat (tr.w_delay) begin                          //  w_delay 만큼 W 보류(이 동안 AW만 VALID)
-                @(vif.master_cb);                             //
-                // ★ 지연 중 awready 펄스를 놓치지 않도록 폴링
-                //   이 DUT 는 awready 를 한 클럭만 띄우므로 여기서 잡아야 한다.
-                if (!got_aw && vif.master_cb.awready) begin    //
-                    got_aw = 1'b1;                            //  AW 거래 성립 기록
-                    vif.master_cb.awvalid <= 1'b0;           //  성립했으니 AW VALID 내림
+            repeat (tr.w_delay) begin
+                @(vif.master_cb);
+                // 지연 중 awready 펄스를 놓치지 않도록 폴링 (감지=즉시 drop)
+                if (!got_aw && vif.master_cb.awready) begin
+                    got_aw = 1'b1;
+                    vif.master_cb.awvalid <= 1'b0;
                 end
             end
-            vif.master_cb.wvalid  <= 1'b1;                    //  이제 W VALID 켬
+            vif.master_cb.wvalid  <= 1'b1;                     // 이제 W VALID 켬
         end
 
-        while (!got_b) begin                                   // 응답(B)을 받을 때까지 매 클럭 반복
-            @(vif.master_cb);                                 // 다음 클럭 에지까지 대기(여기서 신호가 한 클럭 갱신됨)
-            // mark completion, deassert valid on the NEXT cycle
-            if (got_aw) vif.master_cb.awvalid <= 1'b0;         // AW거래 이미 성립했으면 이번 클럭에 AW VALID 내림(다음싸이클 반영)
-            if (got_w ) vif.master_cb.wvalid  <= 1'b0;         // W거래 이미 성립했으면 W VALID 내림
+        while (!got_b) begin
+            @(vif.master_cb);                                 // 다음 클럭 엣지
 
-            if (!got_aw && vif.master_cb.awready) got_aw = 1'b1; // 아직 AW 안끝났는데 awready 보이면 -> AW 거래 성립 기록
-            if (!got_w  && vif.master_cb.wready ) got_w  = 1'b1; // 아직 W 안끝났는데 wready 보이면 -> W 거래 성립 기록
+            // ── 핸드셰이크 감지와 동시에 VALID 내림 (같은 엣지, NBA 큐잉) ──
+            //    이전엔 'got_*' 가 이미 1일 때 다음 클럭에 내려 한 박자 늦었다.
+            //    이제 READY 를 보는 그 엣지에서 바로 내려 재포착을 차단한다.
+            if (!got_aw && vif.master_cb.awready) begin
+                got_aw = 1'b1;
+                vif.master_cb.awvalid <= 1'b0;
+            end
+            if (!got_w && vif.master_cb.wready) begin
+                got_w = 1'b1;
+                vif.master_cb.wvalid <= 1'b0;
+            end
 
-            if (vif.master_cb.bvalid) begin                   // DUT가 응답 VALID 를 띄우면(=응답 도착)
-                tr.resp = vif.master_cb.bresp;                //  응답코드(OKAY/DECERR)를 전표 resp칸에 받아적음
-                got_b   = 1'b1;                               //  응답 받음 표시 -> while 종료 조건 충족
-                vif.master_cb.bready <= 1'b0;                 //  응답 받았으니 B READY 내림
-            end else begin                                    // 응답이 아직 안 왔으면
-                wait_cnt++;                                   //  대기 클럭 누적
-                if (wait_cnt >= RESP_LIMIT) begin             //  한도 초과 = 슬레이브가 응답을 못 줌
-                    // AXI4-Lite 위반: 합법적 자극인데 응답이 끝없이 안 옴(deadlock).
-                    // 어느 채널이 막혔는지까지 같이 보고한다.
+            if (vif.master_cb.bvalid) begin                   // 응답 도착
+                tr.resp = vif.master_cb.bresp;
+                got_b   = 1'b1;
+                vif.master_cb.bready <= 1'b0;                 // 응답 회수, B READY 내림
+            end else begin
+                wait_cnt++;
+                if (wait_cnt >= RESP_LIMIT) begin             // 한도 초과 = 프로토콜 위반/deadlock
                     `uvm_error("DRV", $sformatf(
                         "AXI4-LITE VIOLATION: no BVALID within %0d cycles (addr=0x%08h, aw_delay=%0d, w_delay=%0d, got_aw=%0b, got_w=%0b). Slave failed to complete write under this AW/W ordering -> channels not independent.",
                         RESP_LIMIT, tr.addr, tr.aw_delay, tr.w_delay, got_aw, got_w))
-                    got_b = 1'b1;                             //  루프 강제 탈출(시뮬 진행 위해)
-                    tr.resp = 2'bxx;                          //  응답 없음 표시
-                    vif.master_cb.bready <= 1'b0;            //
+                    got_b = 1'b1;
+                    tr.resp = 2'bxx;
+                    vif.master_cb.bready <= 1'b0;
                 end
             end
-        end                                                   //
-        // ensure valids are low before next transaction
-        vif.master_cb.awvalid <= 1'b0;                        // 다음 거래 전 AW VALID 확실히 0 (안전)
-        vif.master_cb.wvalid  <= 1'b0;                        // W VALID 확실히 0
-        @(vif.master_cb);                                     // 한 클럭 쉬고 다음 전표로(신호 정리 반영)
-    endtask                                                    //
+        end
+
+        // 다음 거래 전 VALID 확실히 0 (방어적 — 정상 경로에선 이미 0)
+        vif.master_cb.awvalid <= 1'b0;
+        vif.master_cb.wvalid  <= 1'b0;
+        @(vif.master_cb);
+    endtask
 
     //------------------------------------------------------------------
     // drive_read : 읽기 1건 수행.
-    //   AR(주소)을 VALID 켜서 내보내고, R(데이터+응답)을 회수.
+    //   AR(주소)을 VALID 켜 내보내고 R(데이터+응답) 회수.
+    //   규칙: AR VALID 는 arready 를 본 '그 엣지'에 내린다.
     //------------------------------------------------------------------
-    task drive_read(axil_seq_item tr);                         // // @suppress "The direction of the subroutine port is implicitly defined as 'input'"
-        bit got_ar = 1'b0;                                     // 읽기주소 채널 거래 성립했나(arready 받았나)
-        bit got_r  = 1'b0;                                     // 읽기데이터 받았나(rvalid 봤나)
+    task drive_read(axil_seq_item tr);
+        bit got_ar = 1'b0;                                     // AR 거래 성립(arready 봤나)
+        bit got_r  = 1'b0;                                     // R 데이터 받았나(rvalid 봤나)
 
-        vif.master_cb.araddr  <= tr.addr;                      // 전표 주소를 AR주소선에 실음
-        vif.master_cb.arprot  <= tr.prot;                      // 전표 권한을 AR권한선에 실음
-        vif.master_cb.arvalid <= 1'b1;                         // AR VALID 켬 = "읽기주소 준비됐다"
-        vif.master_cb.rready  <= 1'b1;                         // R READY 켬 = "읽기데이터 받을 준비됐다"
+        vif.master_cb.araddr  <= tr.addr;
+        vif.master_cb.arprot  <= tr.prot;
+        vif.master_cb.arvalid <= 1'b1;                         // AR VALID 켬
+        vif.master_cb.rready  <= 1'b1;                         // R READY 켬
 
-        while (!got_r) begin                                   // 읽기데이터(R)를 받을 때까지 반복
-            @(vif.master_cb);                                 // 다음 클럭 대기
-            if (got_ar) vif.master_cb.arvalid <= 1'b0;         // AR거래 이미 성립했으면 AR VALID 내림
+        while (!got_r) begin
+            @(vif.master_cb);
 
-            if (!got_ar && vif.master_cb.arready) got_ar = 1'b1; // arready 보이면 AR 거래 성립 기록
+            // ── arready 감지와 동시에 AR VALID 내림 (같은 엣지) ──
+            if (!got_ar && vif.master_cb.arready) begin
+                got_ar = 1'b1;
+                vif.master_cb.arvalid <= 1'b0;
+            end
 
-            if (vif.master_cb.rvalid) begin                   // DUT가 읽기데이터 VALID 띄우면(=데이터 도착)
-                tr.data = vif.master_cb.rdata;                //  읽은 데이터를 전표 data칸에 받아적음
-                tr.resp = vif.master_cb.rresp;                //  읽기 응답코드를 전표 resp칸에 받아적음
-                got_r   = 1'b1;                               //  데이터 받음 표시 -> while 종료
-                vif.master_cb.rready <= 1'b0;                 //  받았으니 R READY 내림
-            end                                               //
-        end                                                   //
-        vif.master_cb.arvalid <= 1'b0;                        // 다음 거래 전 AR VALID 확실히 0
-        @(vif.master_cb);                                     // 한 클럭 쉬고 다음 전표로
-    endtask                                                    //
-endclass                                                       // axil_driver 끝
+            if (vif.master_cb.rvalid) begin                   // 읽기 데이터 도착
+                tr.data = vif.master_cb.rdata;
+                tr.resp = vif.master_cb.rresp;
+                got_r   = 1'b1;
+                vif.master_cb.rready <= 1'b0;                 // R READY 내림
+            end
+        end
+        vif.master_cb.arvalid <= 1'b0;
+        @(vif.master_cb);
+    endtask
+endclass
 ```
 
 ### axil_monitor.sv
