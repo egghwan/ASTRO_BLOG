@@ -1,21 +1,36 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 // =====================================================================
 //  ★ 배포 전에 아래 두 줄을 본인 것으로 반드시 수정하세요 ★
 // =====================================================================
 const SITE = 'https://egghwan.github.io';
 const REPO = 'ASTRO_BLOG';
-
 const isBuild = process.env.NODE_ENV === 'production';
 const BASE = isBuild && REPO ? `/${REPO}` : undefined;
-
 export default defineConfig({
   site: SITE,
   base: BASE,
+  markdown: {
+    remarkPlugins: [remarkMath],
+    rehypePlugins: [rehypeKatex],
+  },
   integrations: [
     starlight({
       title: 'Eggmo',
+      head: [
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'stylesheet',
+            href: 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css',
+            integrity: 'sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+',
+            crossorigin: 'anonymous',
+          },
+        },
+      ],
       customCss: ['./src/styles/custom.css'],
       description: '반도체 설계 · RTL 검증 · AI 학습 기록',
       defaultLocale: 'root',
