@@ -723,8 +723,10 @@ wire w_in_fire = w_both & w_adv;              // 그때만 파이프 진입
 // skid buffer so neither tready is combinationally coupled to m_axis_tready.
 //
 // Algorithm (Farrow structure, per-sample coefficients, Horner in mu):
-//   c0 = x0 ; c1 = 0.5(x1 - x-1)
-//   c2 = x-1 - 2.5 x0 + 2 x1 - 0.5 x2 ; c3 = 1.5(x0 - x1) + 0.5(x2 - x-1)
+//   c0 = x0
+//   c1 = 0.5(x1 - x-1)
+//   c2 = x-1 - 2.5 x0 + 2 x1 - 0.5 x2
+//   c3 = 1.5(x0 - x1) + 0.5(x2 - x-1)
 //   y  = ((c3*mu + c2)*mu + c1)*mu + c0
 // Branch filters are multiplierless (coeffs are multiples of 1/2 -> shift+add);
 // only the three Horner mu-multiplies map to DSPs. DP_FRAC is independent of
@@ -735,16 +737,26 @@ wire w_in_fire = w_both & w_adv;              // 그때만 파이프 진입
 //   internal X : Q1.DP_FRAC  datapath : Q4.DP_FRAC   product : PW bits
 //   m_axis_tdata : signed Q(OUT_W-DP_FRAC).DP_FRAC, saturating
 //
+// Reset strategy (portable ASIC/FPGA via the ASYNC_RST parameter):
+//   Only r_vpipe (the valid pipeline) is reset -- it gates m_axis_tvalid, so it
+//   must power up at 0. Datapath registers are intentionally NOT reset: r_vpipe
+//   masks their power-up value in normal operation, ASIC scan-DFT initializes
+//   them for test, and FPGA configuration sets them to 0. This keeps the reset
+//   tree tiny and lets DSP/SRL packing proceed.
+//   ASYNC_RST=1 -> async reset (ASIC; add a top-level reset synchronizer).
+//   ASYNC_RST=0 -> synchronous reset (FPGA/Xilinx-friendly).
+//
 // Naming: w_ = combinational (wire/always_comb), r_ = registered (always_ff).
 // Latency LAT = 8 cycles (while advancing); throughput 1 sample/cycle.
 //=============================================================================
 `default_nettype none
 
 module lib_axis_interp_catmull #(
-    parameter int IN_W    = 14,   // input sample width, signed Q1.(IN_W-1)
-    parameter int DP_FRAC = 14,   // internal datapath fraction bits (independent)
-    parameter int MU_W    = 18,   // mu width, unsigned Q0.MU_W
-    parameter int OUT_W   = 16    // output width, frac = DP_FRAC, saturating
+    parameter int IN_W      = 14, // input sample width, signed Q1.(IN_W-1)
+    parameter int DP_FRAC   = 14, // internal datapath fraction bits (independent)
+    parameter int MU_W      = 18, // mu width, unsigned Q0.MU_W
+    parameter int OUT_W     = 16, // output width, frac = DP_FRAC, saturating
+    parameter bit ASYNC_RST = 1   // 1: async reset (ASIC), 0: sync reset (FPGA)
 ) (
     input  wire                     s_axis_aclk,
     input  wire                     s_axis_aresetn,
@@ -765,11 +777,11 @@ module lib_axis_interp_catmull #(
     output wire signed [OUT_W-1:0]  m_axis_tdata
 );
     // ------------------------------------------------------------------ params
-    localparam int SH  = DP_FRAC - (IN_W - 1);
-    localparam int XW  = DP_FRAC + 1 + ((SH < 0) ? 1 : 0);
-    localparam int CW  = XW + 3;                 // covers L1(c2)=6 x max|X|
-    localparam int PW  = CW + MU_W + 1;
-    localparam int LAT = 8;
+    localparam int SH  = DP_FRAC - (IN_W - 1);              // Fractional Bit Shift
+    localparam int XW  = DP_FRAC + 1 + ((SH < 0) ? 1 : 0);  // Input Data Bit width
+    localparam int CW  = XW + 3;       // C0~C3 BW:Bit Extension(+1)+(+2.5)+(+2)+(+0.5)=log2(6.0)=3
+    localparam int PW  = CW + MU_W + 1;                     // Product Width
+    localparam int LAT = 8;                                 // Latency
 
     // ======================= input skid buffers (per stream) ================
     wire                w_din_tvalid, w_din_tready;
@@ -777,7 +789,7 @@ module lib_axis_interp_catmull #(
     wire                w_mu_tvalid,  w_mu_tready;
     wire        [MU_W-1:0] w_mu_tdata;
 
-    lib_axis_skid_buffer #(.DATA_W(IN_W)) u_skid_din (
+    lib_axis_skid_buffer #(.DATA_W(IN_W), .ASYNC_RST(ASYNC_RST)) u_skid_din (
         .s_axis_aclk   (s_axis_aclk),      .s_axis_aresetn(s_axis_aresetn),
         .s_axis_tvalid (s_axis_din_tvalid),.s_axis_tready (s_axis_din_tready),
         .s_axis_tdata  (s_axis_din_tdata),
@@ -785,7 +797,7 @@ module lib_axis_interp_catmull #(
         .m_axis_tdata  (w_din_tdata)
     );
 
-    lib_axis_skid_buffer #(.DATA_W(MU_W)) u_skid_mu (
+    lib_axis_skid_buffer #(.DATA_W(MU_W), .ASYNC_RST(ASYNC_RST)) u_skid_mu (
         .s_axis_aclk   (s_axis_aclk),      .s_axis_aresetn(s_axis_aresetn),
         .s_axis_tvalid (s_axis_mu_tvalid), .s_axis_tready (s_axis_mu_tready),
         .s_axis_tdata  (s_axis_mu_tdata),
@@ -797,38 +809,60 @@ module lib_axis_interp_catmull #(
     // A new pipeline beat requires BOTH streams present.
     logic [LAT-1:0] r_vpipe;
     wire w_out_stall = r_vpipe[LAT-1] & ~m_axis_tready;
-    wire w_adv       = ~w_out_stall;              // global pipeline enable
+    wire w_adv       = ~w_out_stall;              // global pipeline enable (advance)
     wire w_both      = w_din_tvalid & w_mu_tvalid;// both slaves have a beat
-    wire w_in_fire   = w_both & w_adv;            // sample enters s1 this cycle
+    wire w_in_hs   = w_both & w_adv;            // sample enters s1 this cycle
 
-    // consume from a slave only when the joined beat actually fires
-    assign w_din_tready = w_in_fire;
-    assign w_mu_tready  = w_in_fire;
+    // consume from a slave only when the joined beat actually handshake
+    assign w_din_tready = w_in_hs;
+    assign w_mu_tready  = w_in_hs;
 
     wire signed [IN_W-1:0] w_din = w_din_tdata;
     wire        [MU_W-1:0] w_mu  = w_mu_tdata;
 
     // ------------------------------------------------- fixed-point functions
-    function automatic logic signed [XW-1:0] condition (input logic signed [IN_W-1:0] v);
+    function automatic logic signed [XW-1:0] align_frac (input logic signed [IN_W-1:0] v);
         logic signed [IN_W:0] t;
-        if (SH >= 0) condition = XW'(v) <<< SH;
+        if (SH >= 0) align_frac = XW'(v) <<< SH;
         else begin
             t = {v[IN_W-1], v} + (1 <<< (-SH-1));   // round-half-up
-            condition = XW'(t >>> (-SH));
+            align_frac = XW'(t >>> (-SH));
         end
     endfunction
 
-    function automatic logic signed [CW-1:0] rnd (input logic signed [PW-1:0] p);
+    // ------------------------------------------------------------------------
+    // round_half_up(p, SHIFT): return round(p / 2^SHIFT) using round-half-up.
+    //
+    // Self-contained: the body references only its arguments and PW (the operand
+    // width). To promote it to a shared package later, copy the function into
+    // `package dsp_round_pkg; ... endpackage`, replacing PW with a package
+    // width parameter; the logic itself needs no change (that is the point of
+    // writing SHIFT explicitly instead of hard-coding MU_W).
+    //
+    //   p     : signed value to round (PW bits wide, in and out)
+    //   SHIFT : number of low (fractional) bits to drop.
+    //           SHIFT>0 -> add half-LSB (2^(SHIFT-1)) then arithmetic-shift.
+    //           SHIFT<=0 -> no-op passthrough (nothing to round).
+    //
+    // Usage here: each Horner product grew the fraction by exactly MU_W bits,
+    // so callers pass SHIFT=MU_W to fold Q4.(DP_FRAC+MU_W) back to Q4.DP_FRAC;
+    // the surrounding CW'( ) cast then trims the PW-wide result down to CW.
+    function automatic logic signed [PW-1:0] round_half_up
+        (input logic signed [PW-1:0] p, input int SHIFT);
         logic signed [PW-1:0] t;
-        t   = p + (1 <<< (MU_W-1));
-        rnd = CW'(t >>> MU_W);
+        if (SHIFT <= 0) begin
+            round_half_up = p;                      // no fractional bits to drop
+        end else begin
+            t = p + (PW'(1) <<< (SHIFT-1));         // add half-LSB (2^(SHIFT-1))
+            round_half_up = t >>> SHIFT;            // arithmetic shift = /2^SHIFT
+        end
     endfunction
 
     // ============================ s1: taps ==================================
     logic signed [XW-1:0]  r_x2_q, r_x1_q, r_x0_q, r_xm1_q;
     logic        [MU_W-1:0] r_mu_s1;
-    always_ff @(posedge s_axis_aclk) if (w_adv & w_in_fire) begin
-        {r_xm1_q, r_x0_q, r_x1_q, r_x2_q} <= {r_x0_q, r_x1_q, r_x2_q, condition(w_din)};
+    always_ff @(posedge s_axis_aclk) if (w_adv & w_in_hs) begin
+        {r_xm1_q, r_x0_q, r_x1_q, r_x2_q} <= {r_x0_q, r_x1_q, r_x2_q, align_frac(w_din)};
         r_mu_s1 <= w_mu;
     end
 
@@ -857,7 +891,7 @@ module lib_axis_interp_catmull #(
 
     logic signed [CW-1:0]  r_v1_s4, r_c0_s4, r_c1_s4;
     always_ff @(posedge s_axis_aclk) if (w_adv) begin
-        r_v1_s4 <= rnd(r_p3_s3) + r_c2_s3;
+        r_v1_s4 <= CW'(round_half_up(r_p3_s3, MU_W)) + r_c2_s3;
         {r_c0_s4, r_c1_s4, r_mu_s4} <= {r_c0_s3, r_c1_s3, r_mu_s3};
     end
 
@@ -872,7 +906,7 @@ module lib_axis_interp_catmull #(
     logic signed [CW-1:0]  r_v2_s6, r_c0_s6;
     logic        [MU_W-1:0] r_mu_s6;
     always_ff @(posedge s_axis_aclk) if (w_adv) begin
-        r_v2_s6 <= rnd(r_p2_s5) + r_c1_s5;
+        r_v2_s6 <= CW'(round_half_up(r_p2_s5, MU_W)) + r_c1_s5;
         {r_c0_s6, r_mu_s6} <= {r_c0_s5, r_mu_s5};
     end
 
@@ -889,15 +923,24 @@ module lib_axis_interp_catmull #(
     localparam logic signed [CW-1:0] SAT_MIN = -(1 <<< (OUT_W-1));
     logic signed [CW-1:0]    w_y_full;
     logic signed [OUT_W-1:0] r_dout;
-    always_comb w_y_full = rnd(r_p1_s7) + r_c0_s7;
+    always_comb w_y_full = CW'(round_half_up(r_p1_s7, MU_W)) + r_c0_s7;
     always_ff @(posedge s_axis_aclk) if (w_adv)
         r_dout <= (w_y_full > SAT_MAX) ? OUT_W'(SAT_MAX) :
                   (w_y_full < SAT_MIN) ? OUT_W'(SAT_MIN) : OUT_W'(w_y_full);
 
-    // ============================ valid tracking ============================
-    always_ff @(posedge s_axis_aclk or negedge s_axis_aresetn)
-        if (!s_axis_aresetn) r_vpipe <= '0;
-        else if (w_adv)      r_vpipe <= {r_vpipe[LAT-2:0], w_in_fire};
+    generate
+        if (ASYNC_RST) begin : g_async_rst
+            // ASIC: async assert (reacts without a clock edge).
+            always_ff @(posedge s_axis_aclk or negedge s_axis_aresetn)
+                if (!s_axis_aresetn) r_vpipe <= '0;
+                else if (w_adv)      r_vpipe <= {r_vpipe[LAT-2:0], w_in_hs};
+        end else begin : g_sync_rst
+            // FPGA: synchronous reset (no aresetn in the sensitivity list).
+            always_ff @(posedge s_axis_aclk)
+                if (!s_axis_aresetn) r_vpipe <= '0;
+                else if (w_adv)      r_vpipe <= {r_vpipe[LAT-2:0], w_in_hs};
+        end
+    endgenerate
 
     assign m_axis_tvalid = r_vpipe[LAT-1];
     assign m_axis_tdata  = r_dout;
@@ -915,76 +958,133 @@ endmodule
 //=============================================================================
 // lib_axis_skid_buffer.sv
 //-----------------------------------------------------------------------------
-// 2-deep skid buffer for AXI4-Stream. Registers both the payload AND the
-// ready path so that s_axis_tready is a pure register output (no combinational
-// path from m_axis_tready to s_axis_tready). This breaks the backpressure
-// timing path and allows full-throughput (1 beat/cycle) with zero bubbles.
+// 2-deep skid buffer for AXI4-Stream.
 //
-// Naming: w_ = combinational (wire/always_comb), r_ = registered (always_ff).
+// WHY THIS EXISTS
+//   The naive backpressure path
+//       assign s_axis_tready = m_axis_tready;
+//   lets a far-away m_axis_tready ripple combinationally back to s_axis_tready
+//   and, across several stages, becomes the critical path. This buffer makes
+//   s_axis_tready a REGISTERED output, cutting that path -- at the cost of
+//   tready reacting one cycle late.
+//
+// WHY "2-DEEP"
+//   Because tready is registered, upstream sees the de-assert one cycle late
+//   and may push one more beat after we decide to stop. A single slot would
+//   lose that beat, so a second "skid" slot absorbs it (like a car skidding
+//   just past the brake point).
+//
+// GUARANTEES (verified by tb_skid / tb_axis_interp / tb_throughput):
+//   no data loss, no duplication, strict in-order, and full throughput
+//   (1 beat/cycle when unstalled, zero bubbles).
+//
+// STYLE
+//   Single-process: next state is computed AND registered inside one always_ff
+//   (the common datapath style). Reset flavour is chosen by ASYNC_RST through
+//   generate; the body is short enough that duplicating it in the two arms is
+//   cheaper in readability than a comb/ff split.
+//     ASYNC_RST=1 : async assert (ASIC; pair with a top-level reset synchronizer)
+//     ASYNC_RST=0 : synchronous reset (FPGA; Xilinx-friendly, keeps SRL/DSP)
+//
+// Naming: w_ = combinational (wire), r_ = registered (always_ff).
 //=============================================================================
 `default_nettype none
 
 module lib_axis_skid_buffer #(
-    parameter int DATA_W = 32
+    parameter int DATA_W    = 32,
+    parameter bit ASYNC_RST = 1
 ) (
     input  wire                 s_axis_aclk,
     input  wire                 s_axis_aresetn,
-    // slave (input)
+    // slave (input side): upstream drives valid/data, we drive ready
     input  wire                 s_axis_tvalid,
     output wire                 s_axis_tready,
     input  wire [DATA_W-1:0]    s_axis_tdata,
-    // master (output)
+    // master (output side): we drive valid/data, downstream drives ready
     output wire                 m_axis_tvalid,
     input  wire                 m_axis_tready,
     output wire [DATA_W-1:0]    m_axis_tdata
 );
-    // Two storage slots: primary (output) + skid (overflow).
-    logic                 r_v_pri, r_v_skid;   // valid flags (registered)
-    logic [DATA_W-1:0]    r_d_pri, r_d_skid;   // payloads    (registered)
-    logic                 r_rdy;               // registered s_axis_tready
+    // Two storage slots:
+    //   primary (pri) -- wired to the output;
+    //   skid          -- overflow slot; used only while the output is stalled
+    // Each slot has a payload (r_d_*) and an "occupied?" flag (r_v_*).
+    logic              r_v_pri, r_v_skid;   // occupied flags (registered)
+    logic [DATA_W-1:0] r_d_pri, r_d_skid;   // payloads       (registered)
+    logic              r_rdy;               // registered s_axis_tready
 
-    assign s_axis_tready = r_rdy;
-    assign m_axis_tvalid = r_v_pri;
+    // Output is ALWAYS the primary slot; skid must drain into primary first.
+    assign s_axis_tready = r_rdy;           // registered -> short timing path
+    assign m_axis_tvalid = r_v_pri;         // valid iff primary occupied
     assign m_axis_tdata  = r_d_pri;
 
-    wire w_s_hs = s_axis_tvalid & r_rdy;        // input handshake
-    wire w_m_hs = r_v_pri & m_axis_tready;      // output handshake
+    // A bus transfers only when valid AND ready are both high.
+    wire w_s_hs = s_axis_tvalid & r_rdy;    // input  handshake: we take a beat
+    wire w_m_hs = r_v_pri & m_axis_tready;  // output handshake: a beat leaves
 
-    always_ff @(posedge s_axis_aclk or negedge s_axis_aresetn) begin
-        if (!s_axis_aresetn) begin
-            r_v_pri  <= 1'b0;
-            r_v_skid <= 1'b0;
-            r_d_pri  <= '0;
-            r_d_skid <= '0;
-            r_rdy    <= 1'b1;
-        end else begin
-            // ---- primary slot ----
-            if (w_m_hs || !r_v_pri) begin
-                // output slot is emptying (or empty): refill it
-                if (r_v_skid) begin
-                    r_d_pri  <= r_d_skid;        // drain skid into primary
-                    r_v_pri  <= 1'b1;
+    generate
+        if (ASYNC_RST) begin : g_async_rst
+            // ASIC: async assert (reacts without a clock edge).
+            always_ff @(posedge s_axis_aclk or negedge s_axis_aresetn) begin
+                if (!s_axis_aresetn) begin
+                    r_v_pri  <= 1'b0;
                     r_v_skid <= 1'b0;
-                end else if (w_s_hs) begin
-                    r_d_pri  <= s_axis_tdata;    // straight through
-                    r_v_pri  <= 1'b1;
+                    r_d_pri  <= '0;
+                    r_d_skid <= '0;
+                    r_rdy    <= 1'b1;
                 end else begin
-                    r_v_pri  <= 1'b0;            // nothing to give
+                    if (w_m_hs || !r_v_pri) begin  // data is leaving now? || primary already empty?
+                        if (r_v_skid) begin        // data is present in skid?
+                            r_d_pri  <= r_d_skid;  // skid -> primary
+                            r_v_pri  <= 1'b1;      // primary valid -> 1
+                            r_v_skid <= 1'b0;      // skid valid -> 0
+                        end else if (w_s_hs) begin // data is empty in skid & s_handshake
+                            r_d_pri  <= s_axis_tdata; // straight through primary
+                            r_v_pri  <= 1'b1;         // straight through primary valid
+                        end else begin
+                            r_v_pri  <= 1'b0;     // nothing to give
+                        end
+                    end else if (w_s_hs && !r_v_skid) begin // output is stall && primary is full
+                        r_d_skid <= s_axis_tdata; // preserve data in skid buffer
+                        r_v_skid <= 1'b1;
+                    end
+                    r_rdy <= !(r_v_skid || (r_v_pri && !m_axis_tready && w_s_hs));
                 end
-            end else if (w_s_hs && !r_v_skid) begin
-                // output stalled but we accepted a beat: park it in skid
-                r_d_skid <= s_axis_tdata;
-                r_v_skid <= 1'b1;
             end
-
-            // ---- registered ready ----
-            // Ready drops only when both slots would be occupied next cycle.
-            r_rdy <= !(r_v_skid || (r_v_pri && !m_axis_tready && w_s_hs));
+        end else begin : g_sync_rst
+            // FPGA: synchronous reset (no aresetn in the sensitivity list).
+            always_ff @(posedge s_axis_aclk) begin
+                if (!s_axis_aresetn) begin
+                    r_v_pri  <= 1'b0;
+                    r_v_skid <= 1'b0;
+                    r_d_pri  <= '0;
+                    r_d_skid <= '0;
+                    r_rdy    <= 1'b1;
+                end else begin
+                    if (w_m_hs || !r_v_pri) begin   //
+                        if (r_v_skid) begin
+                            r_d_pri  <= r_d_skid; // drain skid -> primary
+                            r_v_pri  <= 1'b1;
+                            r_v_skid <= 1'b0;
+                        end else if (w_s_hs) begin
+                            r_d_pri  <= s_axis_tdata; // straight through
+                            r_v_pri  <= 1'b1;
+                        end else begin
+                            r_v_pri  <= 1'b0;     // nothing to give
+                        end
+                    end else if (w_s_hs && !r_v_skid) begin
+                        r_d_skid <= s_axis_tdata; // park overflow beat
+                        r_v_skid <= 1'b1;
+                    end
+                    r_rdy <= !(r_v_skid || (r_v_pri && !m_axis_tready && w_s_hs));
+                end
+            end
         end
-    end
+    endgenerate
 endmodule
 
 `default_nettype wire
+
 ```
 
 :::tip[검증 방법]
