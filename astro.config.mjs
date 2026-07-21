@@ -3,13 +3,16 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+
 // =====================================================================
 //  ★ 배포 전에 아래 두 줄을 본인 것으로 반드시 수정하세요 ★
 // =====================================================================
 const SITE = 'https://egghwan.github.io';
 const REPO = 'ASTRO_BLOG';
+
 const isBuild = process.env.NODE_ENV === 'production';
 const BASE = isBuild && REPO ? `/${REPO}` : undefined;
+
 export default defineConfig({
   site: SITE,
   base: BASE,
@@ -46,12 +49,16 @@ export default defineConfig({
         {
           label: 'Digital Signal Processing',
           items: [
-            // dsp 폴더 바로 아래 글들 (하위 폴더는 collapsed 로 자동 그룹화됨)
-            { autogenerate: { directory: 'dsp' } },
+            { autogenerate: { directory: 'dsp', collapsed: true } },
           ],
         },
         { label: 'Wireless Communication', items: [{ autogenerate: { directory: 'wireless' } }] },
-        { label: 'RTL Library',            items: [{ autogenerate: { directory: 'RTL-library' } }] },
+        {
+          label: 'RTL Library',
+          items: [
+            { autogenerate: { directory: 'RTL-library', collapsed: true } },
+          ],
+        },
         { label: 'FPGA Demo',              items: [{ autogenerate: { directory: 'fpga' } }] },
         { label: 'UVM',                    items: [{ autogenerate: { directory: 'rtl' } }] },
         { label: '기타',                   items: [{ autogenerate: { directory: 'misc' } }] },
