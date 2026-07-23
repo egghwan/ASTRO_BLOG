@@ -1,0 +1,274 @@
+<svg width="850" height="658" viewBox="0 0 850 658" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Catmull-Rom Farrow interpolator - full register schematic with RTL register names</title>
+<desc>Shared 4-tap delay line feeds coefficient multipliers; every pipeline register is labeled with its RTL name (stage suffix sN).</desc>
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+<path d="M2 1.5L8 5L2 8.5" fill="none" stroke="#000000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+<style>
+.th { font-family: 'Times New Roman', Georgia, serif; font-size: 15px; font-style: italic; fill: #000; }
+.ts { font-family: 'Times New Roman', Georgia, serif; font-size: 13px; fill: #000; }
+.tl { font-family: Arial, Helvetica, sans-serif; font-size: 11.5px; fill: #333; }
+.tc { font-family: 'Courier New', Courier, monospace; font-size: 9.5px; fill: #222; }
+.tw { font-family: 'Courier New', Courier, monospace; font-size: 9px; fill: #555; }
+</style>
+</defs>
+<rect x="0" y="0" width="850" height="658" fill="#ffffff"/>
+
+<!-- equation -->
+<text class="th" x="655" y="40" text-anchor="middle" font-size="16">y = ((c&#8323;&#183;&#956; + c&#8322;)&#183;&#956; + c&#8321;)&#183;&#956; + c&#8320;</text>
+<text class="tl" x="655" y="60" text-anchor="middle">Catmull-Rom &#183; Farrow structure &#8212; 3 &#956;-multipliers</text>
+
+<g stroke="#000000" stroke-width="1.2" fill="none">
+<!-- delay line -->
+<path d="M58,38 H90 V52" marker-end="url(#ah)"/>
+<rect x="68" y="52" width="44" height="28"/>
+<path d="M90,80 V142"/>
+<rect x="68" y="142" width="44" height="28"/>
+<path d="M90,170 V232"/>
+<rect x="68" y="232" width="44" height="28"/>
+<path d="M90,260 V322"/>
+<rect x="68" y="322" width="44" height="28"/>
+<path d="M90,350 V370"/>
+
+<!-- tap buses -->
+<path d="M90,100 H330"/>
+<path d="M90,190 H470"/>
+<path d="M90,280 H655 V300"/>
+<path d="M90,370 H470"/>
+
+<!-- branch c3 (x=190) -->
+<path d="M190,100 V118" marker-end="url(#ah)"/>
+<path d="M190,190 V208" marker-end="url(#ah)"/>
+<path d="M190,280 V298" marker-end="url(#ah)"/>
+<path d="M190,370 V388" marker-end="url(#ah)"/>
+<circle cx="190" cy="134" r="14"/><path d="M182,126 L198,142 M198,126 L182,142"/>
+<circle cx="190" cy="224" r="14"/><path d="M182,216 L198,232 M198,216 L182,232"/>
+<circle cx="190" cy="314" r="14"/><path d="M182,306 L198,322 M198,306 L182,322"/>
+<circle cx="190" cy="404" r="14"/><path d="M182,396 L198,412 M198,396 L182,412"/>
+<path d="M190,166 V150" marker-end="url(#ah)"/>
+<path d="M190,256 V240" marker-end="url(#ah)"/>
+<path d="M190,346 V330" marker-end="url(#ah)"/>
+<path d="M190,436 V420" marker-end="url(#ah)"/>
+<path d="M204,134 H250 V208" marker-end="url(#ah)"/>
+<path d="M204,224 H234" marker-end="url(#ah)"/>
+<path d="M204,314 H234" marker-end="url(#ah)"/>
+<path d="M204,404 H234" marker-end="url(#ah)"/>
+<circle cx="250" cy="224" r="14"/><path d="M250,216 V232 M242,224 H258"/>
+<path d="M250,238 V298" marker-end="url(#ah)"/>
+<circle cx="250" cy="314" r="14"/><path d="M250,306 V322 M242,314 H258"/>
+<path d="M250,328 V388" marker-end="url(#ah)"/>
+<circle cx="250" cy="404" r="14"/><path d="M250,396 V412 M242,404 H258"/>
+<path d="M250,418 V428"/>
+<rect x="236" y="428" width="28" height="18"/>
+<path d="M250,446 V520 H286" marker-end="url(#ah)"/>
+
+<!-- branch c2 (x=330) -->
+<path d="M330,100 V118" marker-end="url(#ah)"/>
+<path d="M330,190 V208" marker-end="url(#ah)"/>
+<path d="M330,280 V298" marker-end="url(#ah)"/>
+<path d="M390,370 V388" marker-end="url(#ah)"/>
+<circle cx="330" cy="134" r="14"/><path d="M322,126 L338,142 M338,126 L322,142"/>
+<circle cx="330" cy="224" r="14"/><path d="M322,216 L338,232 M338,216 L322,232"/>
+<circle cx="330" cy="314" r="14"/><path d="M322,306 L338,322 M338,306 L322,322"/>
+<path d="M330,166 V150" marker-end="url(#ah)"/>
+<path d="M330,256 V240" marker-end="url(#ah)"/>
+<path d="M330,346 V330" marker-end="url(#ah)"/>
+<path d="M344,134 H390 V208" marker-end="url(#ah)"/>
+<path d="M344,224 H374" marker-end="url(#ah)"/>
+<path d="M344,314 H374" marker-end="url(#ah)"/>
+<circle cx="390" cy="224" r="14"/><path d="M390,216 V232 M382,224 H398"/>
+<path d="M390,238 V298" marker-end="url(#ah)"/>
+<circle cx="390" cy="314" r="14"/><path d="M390,306 V322 M382,314 H398"/>
+<path d="M390,328 V388" marker-end="url(#ah)"/>
+<circle cx="390" cy="404" r="14"/><path d="M390,396 V412 M382,404 H398"/>
+<path d="M390,418 V428"/>
+<rect x="376" y="428" width="28" height="18"/>
+<path d="M390,446 V454"/>
+<rect x="376" y="454" width="28" height="16"/>
+<path d="M390,470 V506" marker-end="url(#ah)"/>
+
+<!-- branch c1 (x=470) -->
+<path d="M470,190 V208" marker-end="url(#ah)"/>
+<path d="M470,370 V388" marker-end="url(#ah)"/>
+<circle cx="470" cy="224" r="14"/><path d="M462,216 L478,232 M478,216 L462,232"/>
+<circle cx="470" cy="404" r="14"/><path d="M462,396 L478,412 M478,396 L462,412"/>
+<path d="M470,256 V240" marker-end="url(#ah)"/>
+<path d="M470,436 V420" marker-end="url(#ah)"/>
+<path d="M484,224 H525 V388" marker-end="url(#ah)"/>
+<path d="M484,404 H509" marker-end="url(#ah)"/>
+<circle cx="525" cy="404" r="14"/><path d="M525,396 V412 M517,404 H533"/>
+<path d="M525,418 V428"/>
+<rect x="511" y="428" width="28" height="18"/>
+<path d="M525,446 V449"/>
+<rect x="511" y="449" width="28" height="14"/>
+<path d="M525,463 V466"/>
+<rect x="511" y="466" width="28" height="14"/>
+<path d="M525,480 V483"/>
+<rect x="511" y="483" width="28" height="14"/>
+<path d="M525,497 V506" marker-end="url(#ah)"/>
+
+<!-- branch c0 (x=655) -->
+<rect x="641" y="300" width="28" height="18"/>
+<path d="M655,318 V326"/>
+<rect x="641" y="326" width="28" height="14"/>
+<path d="M655,340 V348"/>
+<rect x="641" y="348" width="28" height="14"/>
+<path d="M655,362 V370"/>
+<rect x="641" y="370" width="28" height="14"/>
+<path d="M655,384 V392"/>
+<rect x="641" y="392" width="28" height="14"/>
+<path d="M655,406 V414"/>
+<rect x="641" y="414" width="28" height="14"/>
+<path d="M655,428 V506" marker-end="url(#ah)"/>
+
+<!-- Horner chain (y=520) -->
+<circle cx="300" cy="520" r="14"/><path d="M292,512 L308,528 M308,512 L292,528"/>
+<path d="M314,520 H330"/>
+<rect x="330" y="510" width="26" height="20"/>
+<path d="M356,520 H376" marker-end="url(#ah)"/>
+<circle cx="390" cy="520" r="14"/><path d="M390,512 V528 M382,520 H398"/>
+<path d="M404,520 H410"/>
+<rect x="410" y="510" width="26" height="20"/>
+<path d="M436,520 H448" marker-end="url(#ah)"/>
+<circle cx="462" cy="520" r="14"/><path d="M454,512 L470,528 M470,512 L454,528"/>
+<path d="M476,520 H480"/>
+<rect x="480" y="510" width="21" height="20"/>
+<path d="M501,520 H511" marker-end="url(#ah)"/>
+<circle cx="525" cy="520" r="14"/><path d="M525,512 V528 M517,520 H533"/>
+<path d="M539,520 H544"/>
+<rect x="544" y="510" width="24" height="20"/>
+<path d="M568,520 H580" marker-end="url(#ah)"/>
+<circle cx="594" cy="520" r="14"/><path d="M586,512 L602,528 M602,512 L586,528"/>
+<path d="M608,520 H612"/>
+<rect x="612" y="510" width="20" height="20"/>
+<path d="M632,520 H641" marker-end="url(#ah)"/>
+<circle cx="655" cy="520" r="14"/><path d="M655,512 V528 M647,520 H663"/>
+<path d="M669,520 H688"/>
+<rect x="688" y="510" width="26" height="20"/>
+<path d="M714,520 H762" marker-end="url(#ah)"/>
+
+<!-- mu rail (y=578) -->
+<path d="M64,578 H150"/>
+<rect x="150" y="568" width="26" height="20"/>
+<path d="M176,578 H184"/>
+<rect x="184" y="568" width="26" height="20"/>
+<path d="M210,578 H326"/>
+<path d="M300,578 V536" marker-end="url(#ah)"/>
+<rect x="326" y="568" width="26" height="20"/>
+<path d="M352,578 H360"/>
+<rect x="360" y="568" width="26" height="20"/>
+<path d="M386,578 H488"/>
+<path d="M462,578 V536" marker-end="url(#ah)"/>
+<rect x="488" y="568" width="26" height="20"/>
+<path d="M514,578 H522"/>
+<rect x="522" y="568" width="26" height="20"/>
+<path d="M548,578 H594"/>
+<path d="M594,578 V536" marker-end="url(#ah)"/>
+</g>
+
+<!-- junction dots -->
+<g fill="#000000">
+<circle cx="90" cy="100" r="2.5"/><circle cx="90" cy="190" r="2.5"/><circle cx="90" cy="280" r="2.5"/><circle cx="90" cy="370" r="2.5"/>
+<circle cx="190" cy="100" r="2.5"/><circle cx="190" cy="190" r="2.5"/><circle cx="190" cy="280" r="2.5"/><circle cx="190" cy="370" r="2.5"/>
+<circle cx="330" cy="100" r="2.5"/><circle cx="330" cy="190" r="2.5"/><circle cx="330" cy="280" r="2.5"/><circle cx="390" cy="370" r="2.5"/>
+<circle cx="470" cy="190" r="2.5"/><circle cx="470" cy="370" r="2.5"/>
+<circle cx="300" cy="578" r="2.5"/><circle cx="462" cy="578" r="2.5"/>
+</g>
+
+<!-- ===== labels ===== -->
+<text class="th" x="28" y="42">x[n]</text>
+<text class="ts" x="90" y="70" text-anchor="middle">T&#8347;</text>
+<text class="ts" x="90" y="160" text-anchor="middle">T&#8347;</text>
+<text class="ts" x="90" y="250" text-anchor="middle">T&#8347;</text>
+<text class="ts" x="90" y="340" text-anchor="middle">T&#8347;</text>
+<text class="tc" x="64" y="69" text-anchor="end">x2_q</text>
+<text class="tc" x="64" y="159" text-anchor="end">x1_q</text>
+<text class="tc" x="64" y="249" text-anchor="end">x0_q</text>
+<text class="tc" x="64" y="339" text-anchor="end">xm1_q</text>
+<text class="th" x="102" y="93">x&#8322;</text>
+<text class="th" x="102" y="183">x&#8321;</text>
+<text class="th" x="102" y="273">x&#8320;</text>
+<text class="th" x="102" y="363">x&#8331;&#8321;</text>
+
+<text class="ts" x="190" y="182" text-anchor="middle">0.5</text>
+<text class="ts" x="190" y="272" text-anchor="middle">&#8722;1.5</text>
+<text class="ts" x="190" y="362" text-anchor="middle">1.5</text>
+<text class="ts" x="190" y="452" text-anchor="middle">&#8722;0.5</text>
+<text class="ts" x="330" y="182" text-anchor="middle">&#8722;0.5</text>
+<text class="ts" x="330" y="272" text-anchor="middle">2</text>
+<text class="ts" x="330" y="362" text-anchor="middle">&#8722;2.5</text>
+<text class="ts" x="470" y="272" text-anchor="middle">0.5</text>
+<text class="ts" x="470" y="452" text-anchor="middle">&#8722;0.5</text>
+
+<!-- branch s2 register names -->
+<text class="tc" x="270" y="441">c3_s2</text>
+<text class="tc" x="410" y="441">c2_s2</text>
+<text class="tc" x="410" y="466">c2_s3</text>
+<text class="tc" x="545" y="441">c1_s2</text>
+<text class="tc" x="545" y="460">c1_s3</text>
+<text class="tc" x="545" y="477">c1_s4</text>
+<text class="tc" x="545" y="494">c1_s5</text>
+<text class="tc" x="675" y="313">c0_s2</text>
+<text class="tc" x="675" y="337">c0_s3</text>
+<text class="tc" x="675" y="359">c0_s4</text>
+<text class="tc" x="675" y="381">c0_s5</text>
+<text class="tc" x="675" y="403">c0_s6</text>
+<text class="tc" x="675" y="425">c0_s7</text>
+
+<!-- Horner chain register names -->
+<text class="tc" x="343" y="546" text-anchor="middle">p3_s3</text>
+<text class="tc" x="423" y="546" text-anchor="middle">v1_s4</text>
+<text class="tc" x="490" y="546" text-anchor="middle">p2_s5</text>
+<text class="tc" x="556" y="546" text-anchor="middle">v2_s6</text>
+<text class="tc" x="622" y="546" text-anchor="middle">p1_s7</text>
+<text class="tc" x="701" y="546" text-anchor="middle">dout</text>
+<text class="th" x="770" y="524">y[n]</text>
+
+<!-- mu rail register names -->
+<text class="th" x="56" y="582" text-anchor="end">&#956;</text>
+<text class="tc" x="163" y="602" text-anchor="middle">mu_s1</text>
+<text class="tc" x="197" y="614" text-anchor="middle">mu_s2</text>
+<text class="tc" x="339" y="602" text-anchor="middle">mu_s3</text>
+<text class="tc" x="373" y="614" text-anchor="middle">mu_s4</text>
+<text class="tc" x="501" y="602" text-anchor="middle">mu_s5</text>
+<text class="tc" x="535" y="614" text-anchor="middle">mu_s6</text>
+
+
+<!-- ===== bus-width annotations ===== -->
+<g stroke="#555" stroke-width="1" fill="none">
+<path d="M71,42 L77,34"/>
+<path d="M143,104 L149,96"/>
+<path d="M143,194 L149,186"/>
+<path d="M143,284 L149,276"/>
+<path d="M143,374 L149,366"/>
+<path d="M246,482 L254,476"/>
+<path d="M386,491 L394,485"/>
+<path d="M493,408 L499,400"/>
+<path d="M651,473 L659,467"/>
+<path d="M97,582 L103,574"/>
+<path d="M735,524 L741,516"/>
+</g>
+<g>
+<text class="tw" x="74" y="30" text-anchor="middle">IN_W</text>
+<text class="tw" x="153" y="96">XW</text>
+<text class="tw" x="153" y="186">XW</text>
+<text class="tw" x="153" y="276">XW</text>
+<text class="tw" x="153" y="366">XW</text>
+<text class="tw" x="257" y="482">CW</text>
+<text class="tw" x="397" y="491">CW</text>
+<text class="tw" x="496" y="396" text-anchor="middle">CW</text>
+<text class="tw" x="662" y="472">CW</text>
+<text class="tw" x="100" y="569" text-anchor="middle">MU_W</text>
+<text class="tw" x="366" y="503" text-anchor="middle">PW</text>
+<text class="tw" x="442" y="503" text-anchor="middle">CW</text>
+<text class="tw" x="505" y="502" text-anchor="middle">PW</text>
+<text class="tw" x="574" y="503" text-anchor="middle">CW</text>
+<text class="tw" x="636" y="502" text-anchor="middle">PW</text>
+<text class="tw" x="679" y="503" text-anchor="middle">CW</text>
+<text class="tw" x="738" y="513" text-anchor="middle">OUT_W</text>
+</g>
+
+<text class="tl" x="64" y="634">T&#8347;: tap-delay register &#183; boxes: pipeline registers, labeled with RTL names (r_&#8230;, stage suffix _sN) &#183; &#8855; multiplier &#183; &#8853; adder</text>
+<text class="tl" x="64" y="652">bit widths: IN_W=14 &#183; XW=DP_FRAC+1=15 (align_frac at input) &#183; CW=XW+3=18 &#183; MU_W=18 &#183; PW=CW+MU_W+1=37, rounded half-up to CW at &#8853; &#183; OUT_W=16 (saturating)</text>
+</svg>
